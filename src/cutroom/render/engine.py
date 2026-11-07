@@ -31,6 +31,7 @@ from cutroom.system.ffmpeg import ffmpeg_info, require_tool, run_ffmpeg
 from cutroom.timeline.model import Timeline
 
 SR = 48000
+AAC_PRIMING = 1024   # samples FFmpeg's AAC encoder prepends (its initial_padding)
 Mode = Literal["preview", "final"]
 
 
@@ -151,6 +152,31 @@ def detect_clicks(wav: Path, joins: list[int], *, ratio: float = 5.0, min_jump: 
     return clicks
 
 
+def has_edit_list(mp4: Path) -> bool:
+    """True if any track of an MP4 has a non-trivial edit list (YouTube asks for none)."""
+    import struct
+
+    with open(mp4, "rb") as f:
+        data = f.read(64 * 1024 * 1024)
+
+    def walk(off: int, end: int) -> bool:
+        while off + 8 <= end:
+            size, typ = struct.unpack(">I4s", data[off:off + 8])
+            hdr = 8
+            if size == 1:
+                size, hdr = struct.unpack(">Q", data[off + 8:off + 16])[0], 16
+            if size < 8:
+                return False
+            if typ == b"elst":
+                return True
+            if typ in (b"moov", b"trak", b"edts") and walk(off + hdr, min(end, off + size)):
+                return True
+            off += size
+        return False
+
+    return walk(0, len(data))
+
+
 # --------------------------------------------------------------------------- video
 
 
@@ -242,9 +268,14 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
         concat.write_text("".join(f"file '{p.name}'\n" for p in parts), encoding="utf-8")
         abitrate = "384k" if mode == "final" else "160k"
         tmp_out = out_path.with_name(out_path.stem + ".partial.mp4")
+        # YouTube asks for MP4s without edit lists. Video: negative composition offsets keep the
+        # first frame at t=0 without one. Audio: the AAC encoder prepends AAC_PRIMING samples of
+        # priming; dropping the same number from the start of our audio (always head-pad
+        # silence) keeps the decoded audio aligned with the picture without an edit list.
         run_ffmpeg(["-y", "-f", "concat", "-safe", "0", "-i", str(concat), "-i", str(wav), "-map", "0:v", "-map", "1:a",
-                    "-c:v", "copy", "-c:a", "aac", "-b:a", abitrate, "-ar", str(SR), "-ac", "2",
-                    "-movflags", "+faststart", "-shortest", str(tmp_out)], desc="mux")
+                    "-c:v", "copy", "-af", f"atrim=start_sample={AAC_PRIMING},asetpts=PTS-STARTPTS",
+                    "-c:a", "aac", "-b:a", abitrate, "-ar", str(SR), "-ac", "2",
+                    "-use_editlist", "0", "-movflags", "+faststart+negative_cts_offsets", str(tmp_out)], desc="mux")
         tmp_out.replace(out_path)
         clicks = detect_clicks(wav, joins)
     finally:
@@ -265,6 +296,7 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
         "encoder": "libx264" if mode == "final" else encoder,
     }
     report["checks"] = {
+        "no_edit_lists": not has_edit_list(out_path),
         "duration_ok": abs(info.duration - expected) <= 2 / fps + 0.03,
         "frames_ok": v is not None and (v.frames is None or abs(v.frames - total_frames) <= 1),
         "no_clicks": not clicks,

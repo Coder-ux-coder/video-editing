@@ -1,0 +1,989 @@
+{
+ "$defs": {
+  "AudioSpec": {
+   "properties": {
+    "target_lufs": {
+     "default": -14.0,
+     "title": "Target Lufs",
+     "type": "number"
+    },
+    "true_peak_dbtp": {
+     "default": -1.0,
+     "title": "True Peak Dbtp",
+     "type": "number"
+    },
+    "voice_chain": {
+     "additionalProperties": true,
+     "title": "Voice Chain",
+     "type": "object"
+    },
+    "ducking": {
+     "additionalProperties": true,
+     "title": "Ducking",
+     "type": "object"
+    },
+    "music": {
+     "description": "Each with path, licence, gain, start/end.",
+     "items": {
+      "additionalProperties": true,
+      "type": "object"
+     },
+     "title": "Music",
+     "type": "array"
+    }
+   },
+   "title": "AudioSpec",
+   "type": "object"
+  },
+  "CaptionCue": {
+   "properties": {
+    "start": {
+     "title": "Start",
+     "type": "number"
+    },
+    "end": {
+     "title": "End",
+     "type": "number"
+    },
+    "text": {
+     "title": "Text",
+     "type": "string"
+    },
+    "words": {
+     "items": {
+      "additionalProperties": true,
+      "type": "object"
+     },
+     "title": "Words",
+     "type": "array"
+    },
+    "emphasis": {
+     "items": {
+      "type": "integer"
+     },
+     "title": "Emphasis",
+     "type": "array"
+    }
+   },
+   "required": [
+    "start",
+    "end",
+    "text"
+   ],
+   "title": "CaptionCue",
+   "type": "object"
+  },
+  "Captions": {
+   "properties": {
+    "style": {
+     "default": "clean",
+     "title": "Style",
+     "type": "string"
+    },
+    "safe_zone": {
+     "default": "youtube_long",
+     "title": "Safe Zone",
+     "type": "string"
+    },
+    "max_lines": {
+     "default": 2,
+     "title": "Max Lines",
+     "type": "integer"
+    },
+    "cues": {
+     "items": {
+      "$ref": "#/$defs/CaptionCue"
+     },
+     "title": "Cues",
+     "type": "array"
+    }
+   },
+   "title": "Captions",
+   "type": "object"
+  },
+  "ChangeEntry": {
+   "properties": {
+    "version": {
+     "title": "Version",
+     "type": "integer"
+    },
+    "command": {
+     "description": "The cutroom command that produced this version.",
+     "title": "Command",
+     "type": "string"
+    },
+    "summary": {
+     "description": "One human-readable line: what changed and why.",
+     "title": "Summary",
+     "type": "string"
+    },
+    "at": {
+     "title": "At",
+     "type": "string"
+    }
+   },
+   "required": [
+    "version",
+    "command",
+    "summary"
+   ],
+   "title": "ChangeEntry",
+   "type": "object"
+  },
+  "Clip": {
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "track": {
+     "default": "V1",
+     "title": "Track",
+     "type": "string"
+    },
+    "source": {
+     "title": "Source",
+     "type": "string"
+    },
+    "src_in": {
+     "title": "Src In",
+     "type": "number"
+    },
+    "src_out": {
+     "title": "Src Out",
+     "type": "number"
+    },
+    "start": {
+     "default": 0.0,
+     "description": "Timeline position (s); recomputed by ripple packing.",
+     "title": "Start",
+     "type": "number"
+    },
+    "speed": {
+     "default": 1.0,
+     "exclusiveMinimum": 0,
+     "title": "Speed",
+     "type": "number"
+    },
+    "video": {
+     "default": true,
+     "title": "Video",
+     "type": "boolean"
+    },
+    "audio": {
+     "default": true,
+     "title": "Audio",
+     "type": "boolean"
+    },
+    "volume_db": {
+     "default": 0.0,
+     "title": "Volume Db",
+     "type": "number"
+    },
+    "fade_in": {
+     "default": 0.0,
+     "title": "Fade In",
+     "type": "number"
+    },
+    "fade_out": {
+     "default": 0.0,
+     "title": "Fade Out",
+     "type": "number"
+    },
+    "transition_in": {
+     "anyOf": [
+      {
+       "$ref": "#/$defs/Transition"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "reframe": {
+     "items": {
+      "$ref": "#/$defs/Keyframe"
+     },
+     "title": "Reframe",
+     "type": "array"
+    },
+    "effects": {
+     "items": {
+      "$ref": "#/$defs/Effect"
+     },
+     "title": "Effects",
+     "type": "array"
+    },
+    "reason": {
+     "default": "",
+     "title": "Reason",
+     "type": "string"
+    },
+    "confidence": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Confidence"
+    },
+    "locked": {
+     "default": false,
+     "description": "The agent must not alter a locked clip.",
+     "title": "Locked",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "id",
+    "source",
+    "src_in",
+    "src_out"
+   ],
+   "title": "Clip",
+   "type": "object"
+  },
+  "CutDecision": {
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "source": {
+     "title": "Source",
+     "type": "string"
+    },
+    "src_in": {
+     "title": "Src In",
+     "type": "number"
+    },
+    "src_out": {
+     "title": "Src Out",
+     "type": "number"
+    },
+    "kind": {
+     "enum": [
+      "silence",
+      "filler",
+      "acoustic_filler",
+      "retake",
+      "stumble",
+      "head",
+      "tail",
+      "orphan",
+      "manual",
+      "non_speech"
+     ],
+     "title": "Kind",
+     "type": "string"
+    },
+    "reason": {
+     "title": "Reason",
+     "type": "string"
+    },
+    "confidence": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Confidence"
+    },
+    "text": {
+     "default": "",
+     "description": "Words removed, for readability.",
+     "title": "Text",
+     "type": "string"
+    },
+    "tool": {
+     "title": "Tool",
+     "type": "string"
+    },
+    "version": {
+     "description": "Version that introduced the cut.",
+     "title": "Version",
+     "type": "integer"
+    },
+    "restored": {
+     "default": false,
+     "title": "Restored",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "id",
+    "source",
+    "src_in",
+    "src_out",
+    "kind",
+    "reason",
+    "tool",
+    "version"
+   ],
+   "title": "CutDecision",
+   "type": "object"
+  },
+  "Effect": {
+   "properties": {
+    "name": {
+     "title": "Name",
+     "type": "string"
+    },
+    "params": {
+     "additionalProperties": true,
+     "title": "Params",
+     "type": "object"
+    }
+   },
+   "required": [
+    "name"
+   ],
+   "title": "Effect",
+   "type": "object"
+  },
+  "Graphic": {
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "template": {
+     "title": "Template",
+     "type": "string"
+    },
+    "params": {
+     "additionalProperties": true,
+     "title": "Params",
+     "type": "object"
+    },
+    "start": {
+     "title": "Start",
+     "type": "number"
+    },
+    "end": {
+     "title": "End",
+     "type": "number"
+    },
+    "track": {
+     "default": "G1",
+     "title": "Track",
+     "type": "string"
+    },
+    "anchor": {
+     "default": "auto",
+     "title": "Anchor",
+     "type": "string"
+    },
+    "animation": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Animation"
+    },
+    "z": {
+     "default": 0,
+     "title": "Z",
+     "type": "integer"
+    },
+    "transcript_span": {
+     "anyOf": [
+      {
+       "maxItems": 2,
+       "minItems": 2,
+       "prefixItems": [
+        {
+         "type": "number"
+        },
+        {
+         "type": "number"
+        }
+       ],
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Transcript Span"
+    },
+    "facts": {
+     "description": "Where every number/claim shown comes from (transcript span or document).",
+     "items": {
+      "type": "string"
+     },
+     "title": "Facts",
+     "type": "array"
+    },
+    "reason": {
+     "default": "",
+     "title": "Reason",
+     "type": "string"
+    }
+   },
+   "required": [
+    "id",
+    "template",
+    "start",
+    "end"
+   ],
+   "title": "Graphic",
+   "type": "object"
+  },
+  "Keyframe": {
+   "properties": {
+    "t": {
+     "description": "Clip-relative time (s).",
+     "title": "T",
+     "type": "number"
+    },
+    "x": {
+     "default": 0.5,
+     "description": "Crop centre, 0..1 of source width.",
+     "title": "X",
+     "type": "number"
+    },
+    "y": {
+     "default": 0.5,
+     "description": "Crop centre, 0..1 of source height.",
+     "title": "Y",
+     "type": "number"
+    },
+    "scale": {
+     "default": 1.0,
+     "description": "Zoom factor (1 = no punch-in).",
+     "minimum": 1.0,
+     "title": "Scale",
+     "type": "number"
+    },
+    "ease": {
+     "default": "ease_in_out",
+     "enum": [
+      "linear",
+      "ease_in_out",
+      "hold"
+     ],
+     "title": "Ease",
+     "type": "string"
+    }
+   },
+   "required": [
+    "t"
+   ],
+   "title": "Keyframe",
+   "type": "object"
+  },
+  "Marker": {
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "t": {
+     "title": "T",
+     "type": "number"
+    },
+    "end": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "End"
+    },
+    "kind": {
+     "enum": [
+      "chapter",
+      "hook",
+      "note",
+      "qa",
+      "cta"
+     ],
+     "title": "Kind",
+     "type": "string"
+    },
+    "text": {
+     "title": "Text",
+     "type": "string"
+    }
+   },
+   "required": [
+    "id",
+    "t",
+    "kind",
+    "text"
+   ],
+   "title": "Marker",
+   "type": "object"
+  },
+  "Meta": {
+   "properties": {
+    "schema": {
+     "default": "cutroom.timeline/1",
+     "title": "Schema",
+     "type": "string"
+    },
+    "job_id": {
+     "title": "Job Id",
+     "type": "string"
+    },
+    "version": {
+     "default": 1,
+     "title": "Version",
+     "type": "integer"
+    },
+    "parent": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Version this one was derived from.",
+     "title": "Parent"
+    },
+    "created_at": {
+     "title": "Created At",
+     "type": "string"
+    },
+    "title": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Title"
+    },
+    "client": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Client"
+    },
+    "brief": {
+     "default": "brief.md",
+     "title": "Brief",
+     "type": "string"
+    },
+    "style": {
+     "default": "default",
+     "title": "Style",
+     "type": "string"
+    },
+    "fps": {
+     "description": "Output frame rate (snapped standard rate, e.g. 29.97).",
+     "title": "Fps",
+     "type": "number"
+    },
+    "width": {
+     "title": "Width",
+     "type": "integer"
+    },
+    "height": {
+     "title": "Height",
+     "type": "integer"
+    },
+    "aspect": {
+     "default": "16:9",
+     "title": "Aspect",
+     "type": "string"
+    },
+    "sample_rate": {
+     "default": 48000,
+     "title": "Sample Rate",
+     "type": "integer"
+    },
+    "language": {
+     "default": "en",
+     "title": "Language",
+     "type": "string"
+    },
+    "footage_type": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "talking_head, podcast, screen_recording, vlog, mixed",
+     "title": "Footage Type"
+    },
+    "changelog": {
+     "description": "Full history up to this version.",
+     "items": {
+      "$ref": "#/$defs/ChangeEntry"
+     },
+     "title": "Changelog",
+     "type": "array"
+    }
+   },
+   "required": [
+    "job_id",
+    "fps",
+    "width",
+    "height"
+   ],
+   "title": "Meta",
+   "type": "object"
+  },
+  "Output": {
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "kind": {
+     "enum": [
+      "youtube_long",
+      "youtube_short"
+     ],
+     "title": "Kind",
+     "type": "string"
+    },
+    "width": {
+     "title": "Width",
+     "type": "integer"
+    },
+    "height": {
+     "title": "Height",
+     "type": "integer"
+    },
+    "fps": {
+     "title": "Fps",
+     "type": "number"
+    },
+    "range": {
+     "anyOf": [
+      {
+       "maxItems": 2,
+       "minItems": 2,
+       "prefixItems": [
+        {
+         "type": "number"
+        },
+        {
+         "type": "number"
+        }
+       ],
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Timeline range for a derived output (Shorts).",
+     "title": "Range"
+    },
+    "title": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Title"
+    }
+   },
+   "required": [
+    "id",
+    "kind",
+    "width",
+    "height",
+    "fps"
+   ],
+   "title": "Output",
+   "type": "object"
+  },
+  "SourceRef": {
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "path": {
+     "description": "Job-relative or absolute path of the original (full-resolution) file.",
+     "title": "Path",
+     "type": "string"
+    },
+    "hash": {
+     "title": "Hash",
+     "type": "string"
+    },
+    "duration": {
+     "title": "Duration",
+     "type": "number"
+    },
+    "fps": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Fps"
+    },
+    "width": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Width"
+    },
+    "height": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Height"
+    },
+    "has_video": {
+     "default": true,
+     "title": "Has Video",
+     "type": "boolean"
+    },
+    "has_audio": {
+     "default": true,
+     "title": "Has Audio",
+     "type": "boolean"
+    },
+    "proxy": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Proxy"
+    },
+    "audio": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "48 kHz analysis/render audio (FLAC).",
+     "title": "Audio"
+    },
+    "words": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Edit-ready words file (refined timings).",
+     "title": "Words"
+    }
+   },
+   "required": [
+    "id",
+    "path",
+    "hash",
+    "duration"
+   ],
+   "title": "SourceRef",
+   "type": "object"
+  },
+  "Track": {
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "kind": {
+     "enum": [
+      "video",
+      "audio",
+      "graphics",
+      "captions"
+     ],
+     "title": "Kind",
+     "type": "string"
+    },
+    "name": {
+     "default": "",
+     "title": "Name",
+     "type": "string"
+    },
+    "locked": {
+     "default": false,
+     "title": "Locked",
+     "type": "boolean"
+    },
+    "muted": {
+     "default": false,
+     "title": "Muted",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "id",
+    "kind"
+   ],
+   "title": "Track",
+   "type": "object"
+  },
+  "Transition": {
+   "properties": {
+    "kind": {
+     "default": "cut",
+     "enum": [
+      "cut",
+      "crossfade",
+      "dip_to_black",
+      "zoom",
+      "whip",
+      "swipe",
+      "glitch"
+     ],
+     "title": "Kind",
+     "type": "string"
+    },
+    "duration": {
+     "default": 0.0,
+     "title": "Duration",
+     "type": "number"
+    }
+   },
+   "title": "Transition",
+   "type": "object"
+  }
+ },
+ "properties": {
+  "meta": {
+   "$ref": "#/$defs/Meta"
+  },
+  "sources": {
+   "items": {
+    "$ref": "#/$defs/SourceRef"
+   },
+   "title": "Sources",
+   "type": "array"
+  },
+  "tracks": {
+   "items": {
+    "$ref": "#/$defs/Track"
+   },
+   "title": "Tracks",
+   "type": "array"
+  },
+  "clips": {
+   "items": {
+    "$ref": "#/$defs/Clip"
+   },
+   "title": "Clips",
+   "type": "array"
+  },
+  "cuts": {
+   "description": "Every removed source range, with reasons.",
+   "items": {
+    "$ref": "#/$defs/CutDecision"
+   },
+   "title": "Cuts",
+   "type": "array"
+  },
+  "graphics": {
+   "items": {
+    "$ref": "#/$defs/Graphic"
+   },
+   "title": "Graphics",
+   "type": "array"
+  },
+  "captions": {
+   "anyOf": [
+    {
+     "$ref": "#/$defs/Captions"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null
+  },
+  "audio": {
+   "$ref": "#/$defs/AudioSpec"
+  },
+  "markers": {
+   "items": {
+    "$ref": "#/$defs/Marker"
+   },
+   "title": "Markers",
+   "type": "array"
+  },
+  "outputs": {
+   "items": {
+    "$ref": "#/$defs/Output"
+   },
+   "title": "Outputs",
+   "type": "array"
+  }
+ },
+ "required": [
+  "meta",
+  "sources"
+ ],
+ "title": "Timeline",
+ "type": "object"
+}

@@ -354,22 +354,28 @@ def transcribe(
 
 
 @app.command()
-def docs(check: Annotated[bool, typer.Option(help="Exit 1 if docs/TOOLS.md is out of date instead of writing it.")] = False) -> None:
-    """Regenerate docs/TOOLS.md from the commands' own help text."""
-    from cutroom.docsgen import render_tools_md
+def docs(check: Annotated[bool, typer.Option(help="Exit 1 if the generated docs are out of date instead of writing them.")] = False) -> None:
+    """Regenerate docs/TOOLS.md, docs/TIMELINE_SCHEMA.md and docs/timeline.schema.json from the code."""
+    from cutroom.docsgen import render_timeline_json_schema, render_timeline_schema_md, render_tools_md
     from cutroom.paths import docs_dir
 
-    path = docs_dir() / "TOOLS.md"
-    text = render_tools_md()
-    current = path.read_text(encoding="utf-8") if path.exists() else ""
-    if check:
+    targets = {"TOOLS.md": render_tools_md(), "TIMELINE_SCHEMA.md": render_timeline_schema_md(),
+               "timeline.schema.json": render_timeline_json_schema()}
+    stale = []
+    for name, text in targets.items():
+        path = docs_dir() / name
+        current = path.read_text(encoding="utf-8") if path.exists() else ""
         if current != text:
-            err.print("[red]docs/TOOLS.md is out of date; run `cutroom docs`.[/]")
+            stale.append(name)
+            if not check:
+                path.write_text(text, encoding="utf-8", newline="\n")
+    if check:
+        if stale:
+            err.print(f"[red]Out of date: {', '.join(stale)}; run `cutroom docs`.[/]")
             raise typer.Exit(1)
-        out.print("docs/TOOLS.md is up to date.")
+        out.print("Generated docs are up to date.")
         return
-    path.write_text(text, encoding="utf-8", newline="\n")
-    out.print(f"Wrote {path}")
+    out.print(f"Updated: {', '.join(stale) or 'nothing (already current)'}")
 
 
 @app.command()

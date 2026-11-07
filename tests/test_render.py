@@ -89,7 +89,12 @@ def test_frames_and_sync_are_exact(coded_job):
         # Bursts at source seconds 0,1,3,4,7,8,9 → output seconds 0..6.
         bursts = _burst_times(out)
         assert len(bursts) == 7
-        assert np.abs(np.array(bursts) - np.arange(7)).max() < 0.03, f"{mode}: audio out of sync: {bursts}"
+        # 12 ms: tight enough to catch AAC priming (21 ms) played as a delay. The very first
+        # 21 ms of program audio are replaced by the encoder's priming by design (in real edits
+        # that is head-pad silence), so the burst at t=0 is only checked loosely.
+        assert np.abs(np.array(bursts[1:]) - np.arange(1, 7)).max() < 0.012, f"{mode}: audio out of sync: {bursts}"
+        assert bursts[0] < 0.03
+        assert rep["checks"]["no_edit_lists"]
 
 
 def test_click_detector_finds_hard_joins_and_fades_remove_them(coded_job, tmp_path):

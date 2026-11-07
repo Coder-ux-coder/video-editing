@@ -6,6 +6,32 @@ Every command accepts `--help`. Commands with `--json` print one JSON object on 
 errors print a suggested fix and exit non-zero. Commands that act on a job append to
 `jobs/<id>/log.md` and `jobs/<id>/logs/commands.jsonl`.
 
+## Tool plugins
+
+Commands provided by modules in `src/cutroom/tools/` (see `registry.py`).
+
+| command | group | what it does | writes a new timeline version | tests |
+|---|---|---|---|---|
+| `analyze` | analysis | Run all perception on a job and write analysis/summary.md. | no | `tests/test_analysis.py` |
+| `frames` | analysis | Labelled frame grid at chosen times: visual evidence on demand. | no | `tests/test_analysis.py` |
+| `topics` | analysis | Prepare or check the topic-map task (agent-in-the-loop). | no | `tests/test_analysis.py` |
+| `cut` | cutting | Remove a range by hand (source or timeline time), refusing mid-word cuts. | yes | `tests/test_cutting.py` |
+| `detect-retakes` | cutting | Find stumbles, false starts and repeated sentences; optionally cut them. | yes | `tests/test_cutting.py` |
+| `remove-fillers` | cutting | Remove um/uh (and optionally discourse markers) with natural joins. | yes | `tests/test_cutting.py` |
+| `remove-silence` | cutting | Shorten long pauses and trim head/tail, keeping natural rhythm. | yes | `tests/test_cutting.py` |
+| `restore` | cutting | Put a previously cut range back (by cut id). | yes | `tests/test_cutting.py` |
+| `rough-cut` | cutting | Standard first pass: assemble → silence → fillers → retakes → preview. | yes | `tests/test_cutting.py`, `tests/test_render.py` |
+| `render` | render | Render a timeline version (fast preview or full-quality final). | no | `tests/test_render.py` |
+| `assemble` | timeline | Create the first timeline: every main source, whole, in order. | yes | `tests/test_timeline.py` |
+| `checkout` | timeline | Set HEAD to any version (later edits branch from it). | no | `tests/test_timeline.py` |
+| `diff` | timeline | Human-readable change summary between two timeline versions. | no | `tests/test_timeline.py` |
+| `show` | timeline | Print a timeline as an outline, cut list, summary or JSON. | no | `tests/test_timeline.py` |
+| `snapshot` | timeline | Save the current version again as a named checkpoint. | yes | `tests/test_timeline.py` |
+| `undo` | timeline | Move HEAD back to the parent version (nothing is deleted). | no | `tests/test_timeline.py` |
+| `validate` | timeline | Validate a timeline (schema, structure, word-boundary cuts). | no | `tests/test_timeline.py` |
+| `versions` | timeline | List timeline versions with their changelog lines. | no | `tests/test_timeline.py` |
+| `ffmpeg` | utility | Run any FFmpeg command in the job folder (logged; sources protected). | no | `tests/test_tools.py` |
+
 ## `cutroom analyze`
 
 Everything the agent needs to "see and hear" the footage: proxy and audio, transcript,
@@ -89,11 +115,11 @@ Parameters:
 
 ## `cutroom docs`
 
-Regenerate docs/TOOLS.md from the commands' own help text.
+Regenerate docs/TOOLS.md, docs/TIMELINE_SCHEMA.md and docs/timeline.schema.json from the code.
 
 Parameters:
 
-- `--check`, `--no-check`: Exit 1 if docs/TOOLS.md is out of date instead of writing it.
+- `--check`, `--no-check`: Exit 1 if the generated docs are out of date instead of writing them.
 
 ## `cutroom doctor`
 
