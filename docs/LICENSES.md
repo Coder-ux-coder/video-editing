@@ -4,8 +4,8 @@ Every dependency, model, tool and asset Cutroom uses, with its licence and what 
 for paid client work. Rule: nothing is used without a recorded, free licence that allows
 commercial use. Last checked: 2026-11-07.
 
-Summary: **everything used so far is free for commercial client work.** Remotion (planned
-for Phase 3) is the only open question; see the bottom of this page.
+Summary: **everything used so far is free for commercial client work**, including Remotion
+for you as an individual (see the bottom of this page).
 
 ## External programs
 
@@ -80,11 +80,15 @@ Transcripts produced by these models belong to you; the MIT licence puts no rest
 Fonts, music, SFX, LUTs and stock footage: none yet. Each will get a row here and a
 per-asset metadata file (source URL, licence, date) when added in Phases 2–6.
 
-## Open question: Remotion (Phase 3)
+## Remotion (Phase 3): eligible for the free licence
 
 Remotion's LICENSE.md (checked 2026-11-07) allows free use for **individuals, for-profit
-organisations with up to 3 employees, non-profits, and evaluation**. Other companies need a
-paid Company License (pricing at remotion.pro). Government entities are not mentioned. Paid
-client work is not addressed explicitly; eligibility depends on who you are, not on what the
-videos are for. Remotion 5.0 will "slightly change" the licence. **Decision needed from
-you before Phase 3**; the free alternative is described in `ARCHITECTURE.md` §11.
+organisations with up to 3 employees, non-profits, and evaluation**; other companies need a
+paid Company License. **You confirmed (2026-11-07) that you work as an individual**, so the
+free licence applies, including for paid client work. Watch points:
+
+- If the business grows beyond 3 employees, a Company License becomes required. The graphics
+  layer is isolated behind its own interface so it can be swapped for the free
+  Playwright-based alternative (`ARCHITECTURE.md` §11) instead of paying.
+- Remotion 5.0 will "slightly change" the licence; re-check before upgrading across a major version.
+- Remotion downloads a headless Chrome build at first render (free, BSD-style Chromium licence).

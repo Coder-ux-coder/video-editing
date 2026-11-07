@@ -22,6 +22,10 @@ dependencies = [
     "pydantic==2.14.3",
     "pyyaml==6.0.3",
     "psutil==7.2.2",
+    # Sample-accurate audio reading/writing (bundles libsndfile, LGPL, dynamically linked).
+    "soundfile==0.14.0",
+    # Face detection (YuNet), sharpness and exposure measurement, contact sheets.
+    "opencv-python-headless==5.0.0.93",
 ]
 
 [project.optional-dependencies]

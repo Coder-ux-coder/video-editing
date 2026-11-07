@@ -13,8 +13,8 @@ config/machine.json
 # Large or client data: never commit
 jobs/*
 !jobs/README.md
-models/
-tools/
+/models/
+/tools/
 references/*
 !references/README.md
 

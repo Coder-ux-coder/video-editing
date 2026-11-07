@@ -1,1 +1,1 @@
-"""Render layer: timeline -> FFmpeg filter graph, audio pass, overlay compositing (Phase 1+)."""
+"""Render layer: timeline -> video (FFmpeg) with sample-accurate, click-free audio."""

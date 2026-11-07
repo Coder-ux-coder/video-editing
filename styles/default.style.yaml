@@ -1,0 +1,58 @@
+# Cutroom default style: professional defaults from docs/EDITING_STANDARDS.md.
+# Client styles (styles/clients/<client>.style.yaml) override any key; only list what differs.
+# Every number here is used by a tool; the comment says which and why.
+
+name: default
+description: Clean, modern YouTube talking-head style. Tight but not breathless.
+
+editing:
+  # remove-silence: pauses longer than this are shortened (seconds).
+  max_pause: 0.50
+  # Pause kept where a long pause is shortened. Within a sentence vs after a sentence end.
+  keep_pause_mid_sentence: 0.18
+  keep_pause_sentence_end: 0.32
+  # Padding kept around speech at each cut, so consonants and decays are not clipped.
+  pad_before_word: 0.06
+  pad_after_word: 0.10
+  # A pause after a sentence end that is longer than this AND followed by a short punchy
+  # sentence is treated as a possible dramatic pause and kept at this length (seconds).
+  dramatic_pause_keep: 0.55
+  dramatic_pause_min: 0.9
+  # Leading/trailing non-speech kept at the very start/end of the edit.
+  head_pad: 0.15
+  tail_pad: 0.40
+  # Fillers: always removed (pure hesitation sounds).
+  fillers_always: [um, umm, uh, uhh, uhm, er, erm, ah, ahh, hmm, mm, mhm]
+  # Discourse markers: removed only when isolated by punctuation/pauses (see remove-fillers).
+  fillers_contextual: [like, "you know", "i mean", basically, actually, literally, "kind of", "sort of", so, right, okay]
+  remove_contextual_fillers: false     # conservative by default; agent may enable per job
+  # Untranscribed voiced sounds in pauses (likely "um"/"uh" Whisper did not write down).
+  remove_acoustic_fillers: true
+  acoustic_filler_min: 0.15
+  acoustic_filler_max: 1.2
+  # Retakes: keep the last complete take of a repeated sentence.
+  retake_window_s: 30.0
+  retake_min_similarity: 0.6
+  # Never leave clips shorter than this (orphaned fragments); merge or drop them.
+  min_clip: 0.40
+  # Click-free joins: fade length at every audio join (seconds, each side).
+  join_fade: 0.008
+
+pacing:
+  # Long-form talking head: a visual change (cut, punch-in, graphic, b-roll) every 3-6 s on average.
+  visual_change_target_s: [3.0, 6.0]
+  max_static_s: 12.0
+  hook_window_s: [3.0, 8.0]
+
+audio:
+  target_lufs: -14.0
+  true_peak_dbtp: -1.0
+
+output:
+  long_form:
+    width: 1920
+    height: 1080
+    fps: source        # keep the source frame rate
+  preview:
+    short_side: 540
+    timecode: true

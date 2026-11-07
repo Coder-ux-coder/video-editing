@@ -1,5 +1,5 @@
 # Motion graphics
 
-The themeable graphics/caption component library (Phase 3). Every component takes data props and style tokens; nothing is hard-coded.
+The themeable graphics/caption component library (Phase 3), built with Remotion (React). Every component takes data props and style tokens; nothing is hard-coded. Graphics render as transparent overlay layers that FFmpeg composites.
 
-Engine: Remotion if your licence eligibility is confirmed, otherwise the free equivalent described in `docs/ARCHITECTURE.md` §11 (React/HTML rendered in headless Chromium via Playwright). Graphics render as transparent overlay layers that FFmpeg composites.
+Licence: Remotion's free licence applies because the owner works as an individual (see `docs/LICENSES.md`). The layer is isolated so it can be swapped for a free Playwright-based renderer if that ever changes.

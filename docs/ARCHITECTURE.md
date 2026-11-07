@@ -64,7 +64,7 @@ Status legend used below: **[built]** exists and is tested; **[Pn]** is planned 
 | Path | Contents |
 |---|---|
 | `src/cutroom/` | Python package: `cli.py`, `ingest/`, `perception/`, `timeline/`, `tools/`, `render/`, `review/`, `export/`, `system/` |
-| `graphics/` | Motion-graphics package (Remotion/React or alternative, see §11) [P3] |
+| `graphics/` | Motion-graphics package (Remotion/React, see §11) [P3] |
 | `styles/` | `default.style.yaml` and `clients/<client>.style.yaml` [P2] |
 | `templates/` | JSON specs for reusable motion-graphics templates [P3] |
 | `assets/` | Fonts, SFX, LUTs, music: each with recorded licence and source. `samples/` holds the synthetic test clip. |
@@ -289,16 +289,13 @@ as the honest map of can / partially / cannot-yet.
 | 7 Orchestrator, styles, revisions, NLE export | End-to-end run, revision notes → timeline edits, OTIO/FCPXML | One instruction → full delivery package; revisions change only what they should |
 | 8 Hardening | Batch queue, crash resume, profiling, cost report, golden regression suite | |
 
-## 11. Proposed changes to the brief (need your decision)
+## 11. Changes to the brief and decisions
 
-1. **Graphics engine and the Remotion licence.** Remotion's licence (LICENSE.md, checked
-   2026-11-07) is free for individuals, for-profit companies with **up to 3 employees**, and
-   non-profits; larger companies need a paid Company License. Government bodies are not
-   mentioned. If you qualify, Remotion is the best tool for this layer. If you do not (or are
-   unsure), I propose an equivalent built from free parts: React/HTML/CSS graphics rendered
-   frame-by-frame in headless Chromium via Playwright (Apache-2.0), composited by FFmpeg.
-   That is roughly what Remotion does internally; it costs about one extra week of Phase 3
-   work and loses Remotion's preview Studio.
+1. **Graphics engine: Remotion (decided 2026-11-07).** You work as an individual, so
+   Remotion's free licence applies. The graphics layer stays behind a narrow interface
+   (template id + props in, transparent overlay file out), so if the business grows past
+   3 employees it can be swapped for a free equivalent (React/HTML rendered in headless
+   Chromium via Playwright, Apache-2.0) without touching the rest of the system.
 2. **"LLM-assisted" steps run inside the agent session** (§4.8), not through an API.
 3. **Speaker diarization without gated models.** pyannote's models are free but require a
    HuggingFace account and accepting terms per model. Default plan: separate tracks when

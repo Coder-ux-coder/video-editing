@@ -117,15 +117,12 @@ Conclusions:
 | Previews may use a hardware encoder; **finals always use software libx264** | Best quality per bit for the master YouTube re-encodes. Trade-off: finals are slower on weak machines. |
 | HDR sources are tone-mapped to SDR Rec.709 | YouTube SDR delivery is the safe default; HDR delivery could be added if a client needs it. |
 
-## 5. Questions only you can answer
+## 5. Decisions you made
 
-1. **Remotion licence (needed by Phase 3).** Remotion is free only for individuals,
-   for-profit companies with up to 3 employees, and non-profits (LICENSE.md, checked
-   2026-11-07); larger companies need a paid Company License, which breaks the zero-budget
-   rule. Does your business have 3 or fewer employees? If not, or if you are unsure, I
-   recommend the free alternative in `ARCHITECTURE.md` §11: the same React/HTML graphics,
-   rendered with headless Chromium via Playwright (Apache-2.0).
-2. **Name.** Keep "Cutroom"?
+| Date | Question | Your answer | Consequence |
+|---|---|---|---|
+| 2026-11-07 | Remotion eligibility | You work as an individual (fewer than 3 people) | Remotion's free licence applies. Phase 3 uses Remotion. If the business grows past 3 employees, a paid Company License becomes necessary; the graphics layer is isolated so it could then be swapped for the free Playwright-based alternative (`ARCHITECTURE.md` §11). Re-check when Remotion 5.0 changes its licence. |
+| 2026-11-07 | Name | No change requested | "Cutroom" stays. |
 
 ## 6. Risks and how they are handled
 

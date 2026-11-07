@@ -6,6 +6,87 @@ Every command accepts `--help`. Commands with `--json` print one JSON object on 
 errors print a suggested fix and exit non-zero. Commands that act on a job append to
 `jobs/<id>/log.md` and `jobs/<id>/logs/commands.jsonl`.
 
+## `cutroom analyze`
+
+Everything the agent needs to "see and hear" the footage: proxy and audio, transcript,
+refined words (fillers, untranscribed sounds), audio report (loudness, noise, clipping,
+silences), visual report (shots, faces, framing, exposure, blur, contact sheets), pacing map,
+footage-type guess, and a topic-map task. Each step is cached; re-running is cheap.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--source`, `-s`: Source id(s), e.g. S01. Default: all.
+- `--visual`, `--no-visual`: Include shot/face/exposure analysis.
+- `--force`, `--no-force`: Recompute even if results exist.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom assemble`
+
+Create a timeline from the job's main sources (nothing removed yet). Saves a new version.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--source`, `-s`: Source id(s), e.g. S01. Default: all.
+- `--style`: Style name (styles/<name>.style.yaml). (default: default)
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom checkout`
+
+Make a version current. The next edit creates a new version whose parent is this one.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `VERSION`: Version to make current, e.g. v002
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom cut`
+
+Remove a range. Edges must fall between words (use --snap to fix them, or --force).
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--from`: Start of the range to remove (s).
+- `--to`: End of the range to remove (s).
+- `--reason`: Why (recorded in the timeline and log).
+- `--source`: Source id: times are source times. Omit to use timeline times.
+- `--snap`, `--no-snap`: Move edges that fall inside words to the nearest word boundary.
+- `--force`, `--no-force`: Allow cutting inside a word (not recommended).
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--dry-run`: Show what would change without saving a new version.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom detect-retakes`
+
+Find abandoned attempts the speaker redid: immediate repetitions ("we are, we are"), false
+starts ("so the main — so the main thing is") and whole sentences said again. Keeps the last
+complete take unless it is clearly worse. Writes analysis/retakes.json with reasons; --apply
+cuts the confident ones (or --only the ids you choose).
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--apply`, `--no-apply`: Cut the candidates at or above --min-confidence.
+- `--min-confidence`: Threshold for --apply. (default: 0.75)
+- `--only`: Apply only these candidate ids (r001…).
+- `--dry-run`: Show what would change without saving a new version.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom diff`
+
+What changed between two versions: duration, clips, cuts added/restored, graphics, settings.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `A`: Older version, e.g. v003
+- `B` (optional): Newer version (default HEAD)
+- `--json`: Print machine-readable JSON on stdout.
+
 ## `cutroom docs`
 
 Regenerate docs/TOOLS.md from the commands' own help text.
@@ -28,6 +109,33 @@ Parameters:
 - `--select-asr`: Benchmark speech models on this machine and pick the best that fits.
 - `--asr-model`: Force a speech model (see `cutroom models list`).
 - `--download`, `--no-download`: Download the chosen speech model if missing.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom ffmpeg`
+
+Passthrough for anything no tool covers yet. Runs in the job folder; relative paths are
+job-relative. Refuses to write outside the job or over any source file. The full command is
+logged so it can be turned into a proper tool later (the self-extension rule).
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `ARGS...`: FFmpeg arguments after `--`, e.g. -- -i source/S01.mp4 -t 5 renders/x.mp4
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom frames`
+
+Grab frames at specific times and tile them, each labelled with its time, into one image
+to open and look at (e.g. around a cut, a graphic entrance, or a suspected glitch).
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--at`: Times in seconds (repeat or pass several).
+- `--source`: Source id: times are source times. Omit for timeline (HEAD) times.
+- `--version`, `-v`: Timeline version for timeline times.
+- `--grid`: Columns x rows, e.g. 3x3 (rows grow if needed). (default: 3x3)
+- `--out`: Output JPEG (default review/frames/...).
 - `--json`: Print machine-readable JSON on stdout.
 
 ## `cutroom ingest`
@@ -110,6 +218,96 @@ Parameters:
 - `--force`, `--no-force`: Rebuild even if up to date.
 - `--json`: Print machine-readable JSON on stdout.
 
+## `cutroom remove-fillers`
+
+Remove filler words. Pure hesitations (um, uh, er, hmm) always; discourse markers only when
+isolated by punctuation and enabled; meaningful uses ("I like it", "you know him") are
+protected because they are not set off by commas. Leaves a natural pause at each join.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--contextual`, `--no-contextual`: Also remove discourse markers ('you know', 'I mean', 'like') when set off by commas. Default from style.
+- `--acoustic`, `--no-acoustic`: Also remove untranscribed voiced sounds in pauses (likely 'um'). Default from style.
+- `--dry-run`: Show what would change without saving a new version.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom remove-silence`
+
+Shorten every pause longer than the style's max_pause to a natural length (longer after a
+sentence end; possible dramatic pauses kept longer), and trim silence before the first and
+after the last word. Cuts always sit inside pauses, never inside words.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--max-pause`: Pauses longer than this are shortened (s). Default from style.
+- `--keep`: Pause length to keep mid-sentence (s). Default from style.
+- `--dry-run`: Show what would change without saving a new version.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom render`
+
+Render a version. Every audio join gets a short fade (no clicks); afterwards the render is
+checked: duration and frame count match the timeline, and every join is scanned for clicks.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--mode`: preview: 540p from proxies with burned-in timecode; final: full resolution from sources. (default: preview)
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom restore`
+
+Undo specific cuts without undoing whole versions, e.g. a filler that was really a word.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `CUT_IDS...`: Cut ids, e.g. x0012 (see `show --format cuts`).
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom rough-cut`
+
+Run the standard rough cut. Each step saves its own version, so any step can be inspected
+(`cutroom diff`), undone or adjusted. Prints the resulting outline path and render checks.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--source`, `-s`: Source id(s), e.g. S01. Default: all.
+- `--style`: Style name (default: the timeline's or 'default').
+- `--retake-confidence`: Apply retake candidates at or above this confidence. (default: 0.75)
+- `--fresh`, `--no-fresh`: Start from a new assembly even if a timeline exists.
+- `--render`, `--no-render`: Render a preview at the end.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom show`
+
+Show a timeline version. The outline lists every clip with its timeline and source times and
+the words spoken, and between clips every cut with its reason: the main way to read an edit.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--format`: View to print. (default: outline)
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom snapshot`
+
+Checkpoint HEAD as a new version with a message (e.g. 'sent to client for review').
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--message`, `-m`: What this checkpoint is.
+- `--json`: Print machine-readable JSON on stdout.
+
 ## `cutroom status`
 
 Show a job's sources, derived files and stage status.
@@ -117,6 +315,18 @@ Show a job's sources, derived files and stage status.
 Parameters:
 
 - `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom topics`
+
+Topic segmentation needs judgement, so the agent does it: this writes the task file with
+numbered sentences and the schema; the agent writes analysis/topics.json; --check validates
+that every sentence is covered exactly once and the schema is right.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--check`: Validate analysis/topics.json instead of preparing the task.
 - `--json`: Print machine-readable JSON on stdout.
 
 ## `cutroom transcribe`
@@ -137,6 +347,34 @@ Parameters:
 - `--force`, `--no-force`: Re-transcribe even if a transcript exists.
 - `--json`: Print machine-readable JSON on stdout.
 
+## `cutroom undo`
+
+Undo the last edit: HEAD moves to the parent version. The undone version stays on disk.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom validate`
+
+Check a timeline: schema, overlaps, source ranges, and that no cut lands inside a word.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--json`: Print machine-readable JSON on stdout.
+
 ## `cutroom version`
 
 Print the Cutroom version.
+
+## `cutroom versions`
+
+List every timeline version, its parent, duration and what produced it. * marks HEAD.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--json`: Print machine-readable JSON on stdout.

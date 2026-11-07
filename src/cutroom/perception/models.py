@@ -104,3 +104,56 @@ def ensure_model(name: str, *, allow_download: bool = True) -> Path:
         raise ToolMissingError(f"Download of '{name}' finished but model files are missing.",
                                fix=f"Delete {target} and retry `cutroom models pull {name}`.")
     return target
+
+
+# --------------------------------------------------------------------------- vision models
+
+
+@dataclass(frozen=True)
+class FileModelSpec:
+    name: str
+    url: str
+    sha256: str
+    filename: str
+    licence: str
+    notes: str = ""
+
+
+VISION_MODELS: dict[str, FileModelSpec] = {
+    "yunet": FileModelSpec(
+        name="yunet",
+        url="https://huggingface.co/opencv/face_detection_yunet/resolve/"
+            "3cc26e7f1014a5ee5d74a42acee58bafc9d0a310/face_detection_yunet_2023mar.onnx",
+        sha256="8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+        filename="face_detection_yunet_2023mar.onnx", licence="MIT",
+        notes="OpenCV Zoo YuNet face detector (232 KB), via OpenCV's FaceDetectorYN."),
+}
+
+
+def ensure_file_model(name: str) -> Path:
+    """Download a single-file model (pinned URL + SHA-256) into models/vision/."""
+    import hashlib
+    import urllib.request
+
+    spec = VISION_MODELS[name]
+    target = models_dir() / "vision" / spec.filename
+
+    def digest(p: Path) -> str:
+        return hashlib.sha256(p.read_bytes()).hexdigest()
+
+    if target.is_file() and digest(target) == spec.sha256:
+        return target
+    target.parent.mkdir(parents=True, exist_ok=True)
+    tmp = target.with_suffix(".partial")
+    try:
+        req = urllib.request.Request(spec.url, headers={"User-Agent": "cutroom"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            tmp.write_bytes(r.read())
+    except Exception as e:  # noqa: BLE001
+        raise ToolMissingError(f"Could not download model '{name}': {e}",
+                               fix="Check the internet connection and retry; huggingface.co must be reachable.") from e
+    if digest(tmp) != spec.sha256:
+        tmp.unlink(missing_ok=True)
+        raise ToolMissingError(f"Model '{name}' failed its checksum.", fix="Retry; if it persists, report it.")
+    tmp.replace(target)
+    return target
