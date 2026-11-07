@@ -172,7 +172,8 @@ def test_cli_rough_cut_on_sample(jobs_base, sample_mp4, sample_meta):
     r = runner.invoke(app, ["rough-cut", "rc-job", "--json"])
     assert r.exit_code == 0, r.output
     res = json.loads(r.output)          # exactly one JSON object, even though 5 steps ran
-    assert res["render"]["checks"] == {"duration_ok": True, "frames_ok": True, "no_clicks": True}
+    checks = res["render"]["checks"]
+    assert {"duration_ok", "frames_ok", "no_clicks", "no_edit_lists"} <= set(checks) and all(checks.values())
     # Retake (2.0 s pause + repeated sentence) and stumble are both gone; everything else stays.
     out = runner.invoke(app, ["show", "rc-job"]).output
     spoken = "\n".join(line for line in out.splitlines()

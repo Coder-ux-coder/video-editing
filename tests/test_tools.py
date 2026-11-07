@@ -50,3 +50,13 @@ def test_ffmpeg_passthrough_protects_sources_and_outside(ingested_job, tmp_path)
     assert r.exit_code == 0, r.output
     assert (job.root / "renders" / "ok.mp4").is_file()
     assert "ffmpeg passthrough" in (job.root / "log.md").read_text()
+
+
+def test_playbooks_only_reference_existing_commands():
+    import re
+
+    existing = {n for n in runner.invoke(app, ["--help"]).output.split()}
+    for prompt in sorted((ROOT / "prompts").glob("0*.md")):
+        for cmd in set(re.findall(r"`cutroom ([a-z-]+)", prompt.read_text())):
+            r = runner.invoke(app, [cmd, "--help"])
+            assert r.exit_code == 0, f"{prompt.name} references `cutroom {cmd}`, which does not exist"
