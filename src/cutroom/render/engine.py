@@ -231,6 +231,21 @@ def render_run(job: Job, tl: Timeline, run: list[Segment], out_path: Path, *, mo
                duration=frames / fps, on_progress=on_progress)
 
 
+def output_shots(job: Job, tl: Timeline) -> list[dict]:
+    """Shots as the viewer sees them: every join is a cut, and so is every source camera change
+    inside a clip. Very short shots (< 0.4 s) look like flashes: a classic choppy-edit tell."""
+    cuts = set()
+    for c in tl.track_clips("V1"):
+        cuts.add(round(c.start, 3))
+        rep = job.root / "analysis" / c.source / "visual_report.json"
+        if rep.is_file():
+            for sh in json.loads(rep.read_text(encoding="utf-8")).get("shots", [])[1:]:
+                if c.src_in + 0.01 < sh["start"] < c.src_out - 0.01:
+                    cuts.add(round(c.to_timeline(sh["start"]), 3))
+    edges = sorted(cuts | {round(tl.duration, 3)})
+    return [{"start": a, "end": b, "duration": round(b - a, 3)} for a, b in zip(edges, edges[1:]) if b > a]
+
+
 def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | None = None,
            encoder: str = "libx264", timecode: bool = True, join_fade: float = 0.008,
            on_progress: Callable[[float], None] | None = None) -> dict:
@@ -292,6 +307,7 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
         "video_frames": v.frames if v else None, "expected_frames": total_frames,
         "audio_duration_s": round(a.duration, 3) if a and a.duration else None,
         "clips": len(segs), "joins": len(joins), "runs": len(runs), "clicks": clicks,
+        "flash_shots": [x for x in output_shots(job, tl) if x["duration"] < 0.4],
         "elapsed_s": round(time.perf_counter() - t0, 1), "ffmpeg": ffmpeg_info().version,
         "encoder": "libx264" if mode == "final" else encoder,
     }

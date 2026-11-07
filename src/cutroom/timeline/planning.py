@@ -70,10 +70,23 @@ def snap_to_valley(env: np.ndarray | None, t: float, lo: float, hi: float, radiu
     return round(min(max(k * ENV_HOP + ENV_WIN / 2, a), b), 3)
 
 
+SHOT_SNAP = 0.45   # a cut this close to one of the source's own camera changes moves onto it
+SHOT_WORD_GUARD = 0.02   # ...but never closer than this to a word (refined word edges are the true onsets)
+
+
+def _snap_to_shot(t: float, shots: list[float] | None, lo: float, hi: float) -> float:
+    """Move a cut onto a nearby source shot change (inside [lo, hi]) so the edit hides in the
+    camera change instead of leaving a flash of the old angle."""
+    if not shots:
+        return t
+    near = [s for s in shots if lo <= s <= hi and abs(s - t) <= SHOT_SNAP]
+    return round(min(near, key=lambda s: abs(s - t)), 3) if near else t
+
+
 def _gap_removal(source: str, prev: EditWord | None, nxt: EditWord | None, keep: float, ed: dict,
                  sounds: list[Untranscribed], gap_lo: float, gap_hi: float,
                  cover: tuple[float, float] | None = None,
-                 env: np.ndarray | None = None) -> tuple[float, float] | None:
+                 env: np.ndarray | None = None, shots: list[float] | None = None) -> tuple[float, float] | None:
     """Removal range inside (gap_lo, gap_hi) leaving about ``keep`` seconds of pause.
 
     ``cover`` is a span (dropped words/sounds) the removal must include entirely; the kept
@@ -90,6 +103,10 @@ def _gap_removal(source: str, prev: EditWord | None, nxt: EditWord | None, keep:
         b = 0.0
         a = max(ed["tail_pad"], pad_a)
     r0, r1 = gap_lo + a, gap_hi - b
+    # A camera change just outside the removal would leave a flash of the old angle: extend the
+    # removal to it (never into the pads around the words).
+    r0 = min(r0, _snap_to_shot(r0, shots, gap_lo + (SHOT_WORD_GUARD if prev else 0.0), r0))
+    r1 = max(r1, _snap_to_shot(r1, shots, r1, gap_hi - (SHOT_WORD_GUARD if nxt else 0.0)))
     if cover is not None:
         c0, c1 = cover
         if r0 > c0:
@@ -130,7 +147,7 @@ def _range_end(kept: list[tuple[float, float]], t: float, side: str) -> float:
 
 
 def plan_silence(source: str, wf: WordsFile, kept: list[tuple[float, float]], ed: dict,
-                 env: np.ndarray | None = None) -> list[Removal]:
+                 env: np.ndarray | None = None, shots: list[float] | None = None) -> list[Removal]:
     """Shorten every pause longer than ``max_pause``; trim head and tail of each kept stretch."""
     words = kept_words(wf, kept)
     out: list[Removal] = []
@@ -167,7 +184,7 @@ def plan_silence(source: str, wf: WordsFile, kept: list[tuple[float, float]], ed
         if any(s.kind == "voiced" for s in sounds):
             conf = min(conf, 0.85)
             reason += "; pause contains an untranscribed voiced sound"
-        r = _gap_removal(source, p, n, keep, ed, sounds, p.end, n.start)
+        r = _gap_removal(source, p, n, keep, ed, sounds, p.end, n.start, shots=shots)
         if r:
             out.append(Removal(source, *r, kind="silence", reason=reason, confidence=conf))
     return out
@@ -194,7 +211,7 @@ def _contextual_filler_spans(words: list[EditWord], phrases: list[str]) -> list[
 
 
 def plan_fillers(source: str, wf: WordsFile, kept: list[tuple[float, float]], ed: dict,
-                 env: np.ndarray | None = None) -> list[Removal]:
+                 env: np.ndarray | None = None, shots: list[float] | None = None) -> list[Removal]:
     """Drop filler words (and untranscribed voiced sounds in pauses), leaving natural pauses."""
     words = kept_words(wf, kept)
     always = {normalize(f) for f in ed["fillers_always"]}
@@ -222,7 +239,8 @@ def plan_fillers(source: str, wf: WordsFile, kept: list[tuple[float, float]], ed
         hi = n.start if n else _range_end(kept, group[-1].end, "hi")
         sounds = _sounds_in(wf, lo, hi)
         keep = _pause_target(ed, p)
-        r = _gap_removal(source, p, n, keep, ed, sounds, lo, hi, cover=(group[0].start, group[-1].end), env=env)
+        r = _gap_removal(source, p, n, keep, ed, sounds, lo, hi, cover=(group[0].start, group[-1].end), env=env,
+                         shots=shots)
         if r:
             text = " ".join(w.text for w in group)
             ctx = drop[group[0].i] == "contextual"
@@ -425,7 +443,8 @@ def detect_retakes(wf: WordsFile, kept: list[tuple[float, float]], ed: dict) -> 
 
 
 def plan_retakes(source: str, wf: WordsFile, kept: list[tuple[float, float]], ed: dict,
-                 cands: list[RetakeCandidate], env: np.ndarray | None = None) -> list[Removal]:
+                 cands: list[RetakeCandidate], env: np.ndarray | None = None,
+                 shots: list[float] | None = None) -> list[Removal]:
     """Removals for the given retake candidates, leaving a natural pause at the join."""
     words = kept_words(wf, kept)
     index = {w.i: k for k, w in enumerate(words)}
@@ -440,9 +459,68 @@ def plan_retakes(source: str, wf: WordsFile, kept: list[tuple[float, float]], ed
         lo = p.end if p else _range_end(kept, c.drop[0].start, "lo")
         keep = _pause_target(ed, p)
         r = _gap_removal(source, p, n, keep, ed, _sounds_in(wf, lo, n.start), lo, n.start,
-                         cover=(c.drop[0].start, c.drop[-1].end), env=env)
+                         cover=(c.drop[0].start, c.drop[-1].end), env=env, shots=shots)
         if r:
             kind = "retake" if c.kind == "retake" else "stumble"
             out.append(Removal(source, *r, kind=kind, reason=f"{c.id}: {c.reason}", confidence=c.confidence,
                                text=" ".join(w.text for w in c.drop)))
     return out
+
+
+# --------------------------------------------------------------------------- sentence-level edits
+
+
+def sentence_words(wf: WordsFile, first: int, last: int) -> list[EditWord]:
+    """Words of sentences ``first``..``last`` (numbering as in topics.task.md / topics.json)."""
+    sents = _sentences(wf.words)
+    if not (0 <= first <= last < len(sents)):
+        raise ValueError(f"sentences {first}-{last} out of range 0-{len(sents) - 1}")
+    return [w for s in sents[first:last + 1] for w in s]
+
+
+def plan_sentence_cut(source: str, wf: WordsFile, kept: list[tuple[float, float]], ed: dict, first: int, last: int,
+                      reason: str, env: np.ndarray | None = None, shots: list[float] | None = None) -> Removal | None:
+    """Remove whole sentences, leaving a natural pause between the neighbours."""
+    drop = sentence_words(wf, first, last)
+    words = kept_words(wf, kept)
+    ids = {w.i for w in drop}
+    before = [w for w in words if w.end <= drop[0].start + 1e-6 and w.i not in ids]
+    after = [w for w in words if w.start >= drop[-1].end - 1e-6 and w.i not in ids]
+    p = before[-1] if before else None
+    n = after[0] if after else None
+    lo = p.end if p else _range_end(kept, drop[0].start, "lo")
+    hi = n.start if n else _range_end(kept, drop[-1].end, "hi")
+    r = _gap_removal(source, p, n, _pause_target(ed, p), ed, _sounds_in(wf, lo, hi), lo, hi,
+                     cover=(drop[0].start, drop[-1].end), env=env, shots=shots)
+    if r is None:
+        return None
+    return Removal(source, *r, kind="manual", reason=reason, confidence=1.0, text=" ".join(w.text for w in drop))
+
+
+def sentence_block(wf: WordsFile, kept: list[tuple[float, float]], first: int, last: int,
+                   env: np.ndarray | None = None, shots: list[float] | None = None,
+                   pad: float = 0.06) -> tuple[float, float]:
+    """Source range to lift out for moving sentences: split each surrounding pause in half
+    (or use an existing cut there), so both the hole and the moved block keep natural pauses."""
+    block = sentence_words(wf, first, last)
+    words = kept_words(wf, kept)
+    ids = {w.i for w in block}
+    before = [w for w in words if w.end <= block[0].start + 1e-6 and w.i not in ids]
+    after = [w for w in words if w.start >= block[-1].end - 1e-6 and w.i not in ids]
+    lo_range = _range_end(kept, block[0].start, "lo")
+    hi_range = _range_end(kept, block[-1].end, "hi")
+    a = lo_range
+    if before and before[-1].end >= lo_range:
+        a = (before[-1].end + block[0].start) / 2
+        if block[0].start - before[-1].end < 0.02:      # words touch: cut at the quietest point
+            a = snap_to_valley(env, a, before[-1].start, block[0].end)
+        else:
+            a = _snap_to_shot(a, shots, before[-1].end + SHOT_WORD_GUARD, block[0].start - SHOT_WORD_GUARD)
+    b = hi_range
+    if after and after[0].start <= hi_range:
+        b = (block[-1].end + after[0].start) / 2
+        if after[0].start - block[-1].end < 0.02:
+            b = snap_to_valley(env, b, block[-1].start, after[0].end)
+        else:
+            b = _snap_to_shot(b, shots, block[-1].end + SHOT_WORD_GUARD, after[0].start - SHOT_WORD_GUARD)
+    return round(a, 3), round(b, 3)

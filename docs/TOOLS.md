@@ -15,8 +15,9 @@ Commands provided by modules in `src/cutroom/tools/` (see `registry.py`).
 | `analyze` | analysis | Run all perception on a job and write analysis/summary.md. | no | `tests/test_analysis.py` |
 | `frames` | analysis | Labelled frame grid at chosen times: visual evidence on demand. | no | `tests/test_analysis.py` |
 | `topics` | analysis | Prepare or check the topic-map task (agent-in-the-loop). | no | `tests/test_analysis.py` |
-| `cut` | cutting | Remove a range by hand (source or timeline time), refusing mid-word cuts. | yes | `tests/test_cutting.py` |
+| `cut` | cutting | Remove a range or whole sentences by hand, refusing mid-word cuts. | yes | `tests/test_cutting.py` |
 | `detect-retakes` | cutting | Find stumbles, false starts and repeated sentences; optionally cut them. | yes | `tests/test_cutting.py` |
+| `move` | cutting | Reorder: move sentences (or a source range) to another point in the edit. | yes | `tests/test_cutting.py` |
 | `remove-fillers` | cutting | Remove um/uh (and optionally discourse markers) with natural joins. | yes | `tests/test_cutting.py` |
 | `remove-silence` | cutting | Shorten long pauses and trim head/tail, keeping natural rhythm. | yes | `tests/test_cutting.py` |
 | `restore` | cutting | Put a previously cut range back (by cut id). | yes | `tests/test_cutting.py` |
@@ -70,15 +71,18 @@ Parameters:
 
 ## `cutroom cut`
 
-Remove a range. Edges must fall between words (use --snap to fix them, or --force).
+Remove a range or whole sentences. With --sentences the cut covers exactly those sentences
+and leaves a natural pause. With --from/--to, edges must fall between words (--snap fixes
+them, --force overrides).
 
 Parameters:
 
 - `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--reason`: Why (recorded in the timeline and log).
 - `--from`: Start of the range to remove (s).
 - `--to`: End of the range to remove (s).
-- `--reason`: Why (recorded in the timeline and log).
-- `--source`: Source id: times are source times. Omit to use timeline times.
+- `--sentences`: Sentence numbers as in analysis/topics.task.md, e.g. 3 or 2-3. Leaves a natural pause.
+- `--source`: Source id: --from/--to are source times. Omit to use timeline times.
 - `--snap`, `--no-snap`: Move edges that fall inside words to the nearest word boundary.
 - `--force`, `--no-force`: Allow cutting inside a word (not recommended).
 - `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
@@ -210,6 +214,24 @@ Download a speech model (pinned revision) into models/asr/.
 Parameters:
 
 - `NAME`: Model name, e.g. small.en
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom move`
+
+Move material to another position, e.g. a strong line to the very start as a cold open.
+With --sentences the block is lifted at the middle of the surrounding pauses, so both the
+gap it leaves and the moved block keep natural rhythm. Nothing is deleted.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--reason`: Why (e.g. 'cold open hook').
+- `--to`: Timeline time to insert at (snapped to the nearest clip boundary); 0 = start.
+- `--sentences`: Sentence numbers to move, e.g. 8-9.
+- `--from`: Source start (with --until).
+- `--until`: Source end (with --from).
+- `--source`: Source id (default: the only source).
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
 - `--json`: Print machine-readable JSON on stdout.
 
 ## `cutroom new`

@@ -3,7 +3,7 @@
 *Working name: "Cutroom". Tell me if you want a different name; it is used in the CLI
 command, the Python package and the docs.*
 
-Last updated: 2026-11-07 (Phase 0).
+Last updated: 2026-11-07 (Phase 1).
 
 ## 1. Mission
 
@@ -20,7 +20,7 @@ style files, automatic QA), not supplied by you.
 | 1 | OS unknown: detect and adapt | `setup.sh` (macOS/Linux) and `setup.ps1` (Windows) find or install Python 3.12, then a stdlib-only `setup/bootstrap.py` installs FFmpeg (winget / Homebrew / apt / pacman, or a portable build without admin rights), creates `.venv`, installs pinned dependencies and runs `cutroom doctor`. All code uses `pathlib`; manifests store forward-slash relative paths; Windows long-path support is checked; every data location can move to another drive via environment variables. |
 | 2 | 16 GB RAM, GPU unknown | `cutroom doctor` detects CPU, RAM, GPU (NVIDIA via `nvidia-smi`, Apple Silicon, Intel/AMD), test-encodes each hardware encoder, benchmarks speech models, and writes `config/machine.json`. Memory budget = min(60% of RAM, RAM − 4 GB) = 9.4 GB on 16 GB. Speech models refuse to load if free RAM is short (clear message instead of an out-of-memory crash). |
 | 3 | English only | English-only Whisper models where they help (`small.en`), `language="en"` always, English text normalisation and number spelling for accuracy checks. Filler/pacing/caption rules are English (Phase 1–2). |
-| 4 | All footage types, detected | Planned detection in Phase 1 (talking head, podcast/interview, screen recording, vlog/B-roll, mixed) from face presence, speaker count, OCR text density and shot rate; per-type strategy in `EDITING_STANDARDS.md`. |
+| 4 | All footage types, detected | `cutroom analyze` guesses talking head / podcast / screen recording / vlog / mixed from speech coverage, face presence, multiple faces, shot rate and sharpness, with the evidence; the agent confirms by looking. Per-type strategy in `EDITING_STANDARDS.md` §3. |
 | 5 | YouTube only: 16:9 long-form (1080p, 4K if source allows) and 9:16 Shorts 1080x1920 | Output presets in Phase 1–5; thumbnails 1280x720, chapters, titles/descriptions, captions files. |
 | 6 | Zero budget, local models only | Every dependency so far is free and permissively licensed (`docs/LICENSES.md`). Speech recognition runs locally. No cloud services. Claude is the only intelligence in the loop (agent-in-the-loop tasks, `ARCHITECTURE.md` §4.8). |
 | 7 | Export to Resolve/Premiere | OpenTimelineIO + FCPXML/EDL adapters in Phase 7. |
@@ -116,6 +116,20 @@ Conclusions:
 | Audio extracted twice: 16 kHz mono WAV (what the speech model hears) and 48 kHz FLAC (lossless, for loudness/noise analysis) | Word times map 1:1 to source time; analysis is lossless. |
 | Previews may use a hardware encoder; **finals always use software libx264** | Best quality per bit for the master YouTube re-encodes. Trade-off: finals are slower on weak machines. |
 | HDR sources are tone-mapped to SDR Rec.709 | YouTube SDR delivery is the safe default; HDR delivery could be added if a client needs it. |
+
+
+### 4.4 Phase 1 decisions
+
+| Decision | Why / evidence |
+|---|---|
+| Refine word timings against the audio instead of adding a forced-alignment model now | Pause-edge refinement on a 5 ms energy envelope brought sentence-edge error from 214/429 ms (mean/max) to 17/70 ms on ground truth, for both speech models, with no extra model or PyTorch. Forced alignment stays in reserve if real footage shows otherwise. |
+| Cuts live only in pauses; touching words split at the quietest point; cuts move onto the source's own camera changes when one is within 0.45 s | Reading the 10-minute test edit frame by frame showed jump cuts followed by 0.1–0.3 s flashes of the old angle; snapping halved them (4 → 2). The 2 left need L-cuts/punch-ins (Phases 3–4) and are reported by every render. |
+| Retakes: keep the last complete take; parallel structure, lists, spelled names, interjections never count; number corrections always go to a person | The first detector version wrongly flagged "how to document it and how to preserve it", "10,000 years ago or 5,000 years ago", "O-D-E-S-S" and "oh, oh, wow" on real speech, and would have deleted "fresh" from "human tracks, fresh human tracks". All are now regression tests. |
+| Exposure judged on the face | White Sands footage (bright sand, well-lit face) was falsely flagged as overexposed by whole-frame metrics. |
+| Audio assembled in Python (soundfile, BSD) with 8 ms raised-cosine fades at every join | Sample-accurate, click-free (measured), and keeps A/V sync exact; FFmpeg filters for this would buffer frames or drift. |
+| MP4s without edit lists, AAC priming compensated | YouTube's upload spec asks for no edit lists; naive removal would delay audio 21 ms. Measured sync after the fix: ≤ 3 ms. |
+| YuNet (via OpenCV, Apache-2.0; model MIT, 232 KB) for faces instead of MediaPipe | Much lighter install, same job for Phase 1 (presence, framing, mouth region). MediaPipe may still be evaluated for Phase 5 reframing. |
+| Reorder (`move`) and sentence-level `cut` built in Phase 1 | Needed for a real cold open in the acceptance edit; small given the timeline model. |
 
 ## 5. Decisions you made
 

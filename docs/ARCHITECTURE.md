@@ -19,7 +19,7 @@ Status legend used below: **[built]** exists and is tested; **[Pn]** is planned 
 | Principle | What it means in practice |
 |---|---|
 | Non-destructive | Source files are never modified. Ingest copies them read-only into the job (or references them in place with `--reference`). Every edit lives in the project file. |
-| Versioned | Every meaningful change writes a new immutable timeline version (`versions/v001.json`, `v002.json`, …) with a changelog line, so any step can be undone or diffed. [P1] |
+| Versioned | Every meaningful change writes a new immutable timeline version (`versions/v001.json`, `v002.json`, …) with a changelog line, so any step can be undone or diffed. [built] |
 | Deterministic | Same project file + same assets + same machine profile = same render. Python deps, speech-model revisions and render settings are pinned. |
 | Proxy-first | Analysis and previews use 540p constant-frame-rate proxies. Only final renders read full-resolution sources. |
 | Logged | Each job has `log.md` (human-readable decisions with reasons and confidence) and `logs/commands.jsonl` (every command, arguments, status, timing). |
@@ -65,10 +65,10 @@ Status legend used below: **[built]** exists and is tested; **[Pn]** is planned 
 |---|---|
 | `src/cutroom/` | Python package: `cli.py`, `ingest/`, `perception/`, `timeline/`, `tools/`, `render/`, `review/`, `export/`, `system/` |
 | `graphics/` | Motion-graphics package (Remotion/React, see §11) [P3] |
-| `styles/` | `default.style.yaml` and `clients/<client>.style.yaml` [P2] |
+| `styles/` | `default.style.yaml` (editing parameters [built]; design tokens [P2–3]) and `clients/<client>.style.yaml` |
 | `templates/` | JSON specs for reusable motion-graphics templates [P3] |
 | `assets/` | Fonts, SFX, LUTs, music: each with recorded licence and source. `samples/` holds the synthetic test clip. |
-| `prompts/` | The agent playbook, `00_orchestrator.md` … `10_delivery.md` [P1–P7] |
+| `prompts/` | The agent playbook: `00`–`04` [built]; `05`–`10` [P2–P7] |
 | `docs/` | Charter, this file, standards, schema, generated tool reference, licences, capabilities |
 | `config/machine.json` | Per-machine profile written by `cutroom doctor` (not committed) |
 | `models/` | Downloaded speech/vision models (not committed; `CUTROOM_MODELS_DIR`) |
@@ -84,10 +84,11 @@ log.md            decisions in plain language, newest at the bottom
 logs/commands.jsonl
 source/           read-only copies of the footage (S01_name.mp4, …)
 proxy/            S01.mp4 … (540p short side, CFR, 1 s GOP)
-analysis/S01/     audio_16k.wav, audio_48k.flac, transcript.{json,txt,srt}, and later
-                  audio_report.json, visual_report.json, contact sheets, pacing.json
-versions/         v001.json … immutable timeline versions + changelog [P1]
-renders/          previews and finals [P1+]
+analysis/S01/     audio_16k.wav, audio_48k.flac, transcript.{json,txt,srt}, words.json (refined),
+                  envelope.npz, audio_report.json, visual_report.json, faces.json, pacing.json, sheets/*.jpg
+analysis/         summary.md (read first), topics.task.md → topics.json, retakes.json
+versions/         v001.json … immutable timeline versions, HEAD, CHANGELOG.md
+renders/          vNNN_preview.mp4 / vNNN_final.mp4 + a .json report of the render's self-checks
 review/vNNN/      report.md, scorecard.json, frame grids [P4]
 delivery/         the client package [P7]
 ```
@@ -103,9 +104,11 @@ change; timelines refer to sources only by id, so footage can be relinked by has
 - **Frame rate**: stored as the snapped nominal rate (29.97, 25, …) and passed to FFmpeg as an
   exact rational (`30000/1001`). Variable-frame-rate phone footage is conformed to constant
   frame rate in proxies and renders so audio stays in sync.
-- **Cut placement** [P1]: cuts are computed on word boundaries with a few ms of padding,
-  then snapped to the nearest frame of the output rate at render time. Audio is cut
-  sample-accurately with short crossfades so joins never click.
+- **Cut placement** [built]: cuts sit in pauses between refined word edges (with padding);
+  where two words touch, at the quietest point between them (±40 ms); near one of the source's
+  own camera changes, on that change (so the edit hides in it). At render time video edges snap
+  to the output frame grid and audio uses exactly the same edges, with an 8 ms raised-cosine fade
+  on both sides of every join, so joins never click and sync never drifts.
 
 ### 3.4 Paths
 
@@ -132,14 +135,14 @@ job and absolute otherwise, so a job folder can move between machines and operat
 | Artifact | Approach | Status |
 |---|---|---|
 | Transcript | faster-whisper (CTranslate2) locally, word timestamps, Silero VAD, verbatim prompt to keep stumbles, hotwords from the client glossary. Model chosen per machine by benchmark. | **[built]** (glossary [P1]) |
-| Word-timing refinement | Snap word edges to energy minima; forced alignment (wav2vec2 via torchaudio, CPU wheel) if measurements show >80 ms error | [P1/P2] |
-| Filler detection | Verbatim ASR plus acoustic check of voiced gaps between words | [P1] |
+| Word-timing refinement | Word edges that border a pause are re-placed on the pause found in a 5 ms energy envelope (end = first silence after the word, start = last silence before it). Ground truth: 214/429 ms mean/max error → 17/70 ms. Forced alignment kept in reserve. | **[built]** |
+| Filler detection | Verbatim ASR (transcribed fillers) plus audible regions inside pauses with no word, classified voiced (likely um/uh, by pitch periodicity) or unvoiced (breath) | **[built]** |
 | Speakers | Multi-track recordings: one track per speaker (free and exact). Single track: speaker embeddings + clustering with a non-gated free model (e.g. sherpa-onnx), see §11 | [P1/P5] |
-| Audio report | `ebur128` (LUFS, LRA, true peak), `astats` (noise floor, clipping), `silencedetect`, per-speaker levels, speech/music segmentation | [P1/P2] |
-| Visual report | PySceneDetect shots; MediaPipe face detection/landmarks (headroom, centring, mouth region); OpenCV blur/exposure/white balance; OCR for screen recordings (Tesseract or RapidOCR) | [P1/P4/P5] |
-| Pacing map | Per-second speech rate, pause lengths, vocal energy, "boring score" | [P1] |
-| Topic map | Agent-in-the-loop task (see §4.8): the tool chunks the transcript and writes a task file; the agent writes `topics.json`, which is schema-validated | [P1] |
-| Frame sampler | `cutroom frames <job> --at 12.4 15.0 --grid 3x3`: labelled contact sheets from proxies | [P1] |
+| Audio report | `ebur128` (LUFS, LRA, true peak), envelope-based noise floor, speech level, SNR, clipping runs, silences | **[built]**; per-speaker levels and speech/music segmentation [P2] |
+| Visual report | FFmpeg `scdet` shots; YuNet face detection via OpenCV (bounding box, mouth landmarks) on 1 fps samples; framing (headroom, centring, size); exposure judged on the face; sharpness; colour cast; contact sheets | **[built]**; OCR for screen recordings [P4/P5] |
+| Pacing map | Per-second words, speech time, energy; smoothed boring score; slowest stretches | **[built]** |
+| Topic map | Agent-in-the-loop task (see §4.8): numbered sentences + schema in `topics.task.md`; the agent writes `topics.json`; `cutroom topics --check` validates schema and coverage | **[built]** |
+| Frame sampler | `cutroom frames <job> --at 12.4 --at 15.0 [--source S01]`: labelled grids at source or timeline times | **[built]** |
 
 **Honest limit.** The agent perceives video through samples and reports, not continuous
 playback. It can miss things that happen between samples (a one-frame glitch, a brief
@@ -148,14 +151,16 @@ every cut, graphic entrance/exit and transition, plus signal-level checks that l
 every frame (black/freeze/flash detection, audio discontinuities). What still cannot be
 verified automatically is listed in every review report.
 
-### 4.3 Project model [P1]
+### 4.3 Project model [built]
 
 One canonical JSON timeline per version, validated by pydantic (and exported as JSON
 Schema in `docs/TIMELINE_SCHEMA.md`): `meta`, `sources[]`, `tracks[]`, `clips[]` (with
 `reason`, `confidence`, `locked`), `graphics[]`, `captions[]`, `audio`, `markers[]`,
 `outputs[]` (long-form and each Short derive their own timeline). Commands:
 `validate`, `diff vA vB` (human-readable change summary), `show --format outline`
-(timestamps, speaker, text, active graphics: the agent's main view of the edit), `undo`, `snapshot`.
+(timestamps, text, cuts with reasons, quiet/off-mic and low-confidence marks: the agent's main view
+of the edit), `versions`, `undo`, `checkout`, `snapshot`. Field reference: `docs/TIMELINE_SCHEMA.md`
+(generated); machine-readable schema: `docs/timeline.schema.json`.
 
 ### 4.4 Tool layer
 
@@ -165,17 +170,28 @@ Schema in `docs/TIMELINE_SCHEMA.md`): `meta`, `sources[]`, `tracks[]`, `clips[]`
   operations (e.g. cutting mid-word) unless `--force`.
 - `docs/TOOLS.md` is generated from the CLI's own help (`cutroom docs`), and a test fails
   if it is stale, so the reference never drifts.
-- **Plugins** [P1]: a tool is a module in `src/cutroom/tools/` with a manifest (name,
-  inputs, outputs, tests) that registers itself with the CLI and the docs generator.
-- **Escape hatches** [P1]: `cutroom ffmpeg …` passthrough (logged in the job), and custom
-  graphics compositions when no template fits (added to the library with a spec and test).
+- **Plugins** [built]: a tool is a module in `src/cutroom/tools/` with a manifest (name,
+  inputs, outputs, tests) that registers itself with the CLI and the docs generator; a test
+  fails if a manifest names a test file that does not exist.
+- **Escape hatches**: `cutroom ffmpeg …` passthrough [built] (runs in the job folder, logged,
+  refuses to write to sources or outside the job), and custom graphics compositions when no
+  template fits [P3] (added to the library with a spec and test).
 
-### 4.5 Render layer [P1–P3]
+### 4.5 Render layer [built for cuts; graphics P3]
 
-- **Assembly in FFmpeg**: the timeline compiles to an FFmpeg filter graph. Long timelines
-  render in segments that are then concatenated, to bound memory on 16 GB machines.
-  Audio is rendered as its own sample-accurate pass (cuts with micro-crossfades, the voice
-  chain, music ducking, loudness normalisation) and muxed at the end.
+- **Video**: clips are grouped into *runs* (consecutive clips of one source in increasing
+  source order). Each run is one FFmpeg pass: conform to the output frame rate, then keep exact
+  frame-number ranges (`select=between(n,a,b)`): one decode, no frame buffering, no drift.
+  Runs are concatenated without re-encoding. Tested frame-exact by encoding frame numbers in
+  pixel brightness.
+- **Audio**: assembled sample-accurately in Python from the 48 kHz FLAC, with an 8 ms fade on
+  both sides of every join; voice chain and loudness come in Phase 2. Sync tested to ≤ 3 ms.
+- **YouTube-compliant MP4**: YouTube asks for no edit lists. Video uses negative composition
+  offsets; the AAC encoder's 1024 priming samples are compensated by trimming the same amount
+  from the (always silent) head of the audio. Moov atom at the front.
+- **Self-checks** in every render's JSON report: duration and frame count match the timeline,
+  no clicks at any join (linear-prediction error test), no edit lists, and a list of *flash
+  shots* (< 0.4 s) that the viewer would see as choppy.
 - **Graphics and animated captions** render as transparent overlay layers (e.g. ProRes 4444
   or PNG sequences) composited by FFmpeg. FFmpeg stays the single master compositor; the
   graphics engine only draws graphics.
@@ -197,10 +213,11 @@ up to 4 rounds or until no blockers/majors remain, then stops and reports.
 
 ### 4.7 Style layer [P2–P3]
 
-`styles/*.style.yaml` holds design tokens (colours, fonts, easing, spacing, safe zones) and
-editing parameters (silence thresholds, pacing targets, caption style, loudness target).
+`styles/*.style.yaml` holds editing parameters [built] (pause lengths, pads, filler policy,
+retake thresholds, join fades, pacing and loudness targets) and design tokens [P2–3] (colours,
+fonts, easing, spacing, safe zones). Client styles deep-merge over the default.
 `analyze-reference` turns reference videos into a style profile [P6].
-`docs/EDITING_STANDARDS.md` is the human-readable rationale behind the defaults [P1].
+`docs/EDITING_STANDARDS.md` is the human-readable, cited rationale behind the defaults [built].
 
 ### 4.8 Orchestration layer
 

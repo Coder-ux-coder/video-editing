@@ -50,6 +50,9 @@ All permissive (MIT, BSD, Apache-2.0, ISC, MPL-2.0, PSF). Read from the installe
 | tqdm | 4.70.1 | MPL-2.0 and MIT |
 | typing-extensions | 4.16.0 | PSF-2.0 |
 | colorama (Windows only) | 0.4.6 | BSD-3-Clause |
+| soundfile | 0.14.0 | BSD-3-Clause (bundles libsndfile 1.2.2: LGPL-2.1, dynamically linked; no obligations for using it) |
+| cffi / pycparser | 2.1.1 / 3.12 | MIT / BSD-3-Clause |
+| opencv-python-headless | 5.0.0.93 | Apache-2.0 (OpenCV and the wheel's bundled libraries) |
 | pytest (development) | 9.2.0 | MIT |
 
 ### NVIDIA GPU libraries (`requirements-gpu.txt`, only installed on NVIDIA machines)
@@ -67,6 +70,7 @@ All permissive (MIT, BSD, Apache-2.0, ISC, MPL-2.0, PSF). Read from the installe
 | CTranslate2 conversions tiny.en … large-v3, distil-large-v3 | Systran on HuggingFace | MIT |
 | large-v3-turbo CTranslate2 conversion | deepdml on HuggingFace | MIT |
 | Silero VAD (bundled inside faster-whisper) | Silero Team | MIT |
+| YuNet face detector `face_detection_yunet_2023mar.onnx` (pinned revision + SHA-256) | OpenCV Zoo, via huggingface.co/opencv/face_detection_yunet | MIT |
 
 Transcripts produced by these models belong to you; the MIT licence puts no restriction on output.
 

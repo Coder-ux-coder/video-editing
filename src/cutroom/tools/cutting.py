@@ -11,10 +11,11 @@ from cutroom.cli_common import DryRunOpt, JobArg, JsonOpt, VersionOpt, emit, out
 from cutroom.errors import JobError, RefusedError
 from cutroom.job import atomic_write_text
 from cutroom.timeline import store
-from cutroom.timeline.ops import WORD_EDGE_TOL, Removal, kept_ranges, restore_cut
+from cutroom.timeline.ops import WORD_EDGE_TOL, Removal, kept_ranges, move_range, restore_cut
 from cutroom.timeline.outline import tc
 from cutroom.timeline.planning import detect_retakes as find_retakes
-from cutroom.timeline.planning import plan_fillers, plan_retakes, plan_silence
+from cutroom.timeline.planning import (plan_fillers, plan_retakes, plan_sentence_cut, plan_silence,
+                                      sentence_block)
 from cutroom.tools._common import apply_and_save, open_edit, report
 from cutroom.tools.registry import ToolManifest, tool
 
@@ -40,7 +41,7 @@ def remove_silence(job_id: JobArg, version: VersionOpt = None,
     for s in ctx.tl.sources:
         wf = ctx.words.get(s.id)
         if wf:
-            removals += plan_silence(s.id, wf, kept_ranges(ctx.tl, s.id), ctx.ed, ctx.env(s.id))
+            removals += plan_silence(s.id, wf, kept_ranges(ctx.tl, s.id), ctx.ed, ctx.env(s.id), ctx.shots(s.id))
     report(apply_and_save(ctx, removals, tool="remove-silence", title="remove-silence", dry_run=dry_run), as_json)
 
 
@@ -63,7 +64,7 @@ def remove_fillers(job_id: JobArg, version: VersionOpt = None,
     for s in ctx.tl.sources:
         wf = ctx.words.get(s.id)
         if wf:
-            removals += plan_fillers(s.id, wf, kept_ranges(ctx.tl, s.id), ctx.ed, ctx.env(s.id))
+            removals += plan_fillers(s.id, wf, kept_ranges(ctx.tl, s.id), ctx.ed, ctx.env(s.id), ctx.shots(s.id))
     report(apply_and_save(ctx, removals, tool="remove-fillers", title="remove-fillers", dry_run=dry_run), as_json)
 
 
@@ -93,7 +94,7 @@ def detect_retakes(job_id: JobArg, version: VersionOpt = None,
         all_cands += [(s.id, c) for c in cands]
         chosen = [c for c in cands if (c.id in only if only else c.confidence >= min_confidence)]
         if apply or dry_run:
-            removals += plan_retakes(s.id, wf, kept, ctx.ed, chosen, ctx.env(s.id))
+            removals += plan_retakes(s.id, wf, kept, ctx.ed, chosen, ctx.env(s.id), ctx.shots(s.id))
     data = {"base_version": ctx.base, "candidates": [{"source": sid, **c.to_dict()} for sid, c in all_cands]}
     atomic_write_text(ctx.job.root / "analysis" / "retakes.json", json.dumps(data, indent=1) + "\n")
     if not (apply or dry_run):
@@ -118,19 +119,55 @@ def _timeline_to_source(tl, t: float):
     raise JobError(f"Timeline time {t:.3f}s is outside the edit (0–{tl.duration:.3f}s).", fix="Check the time.")
 
 
-@tool(ToolManifest("cut", "Remove a range by hand (source or timeline time), refusing mid-word cuts.", "cutting",
+def _parse_span(spec: str) -> tuple[int, int]:
+    parts = spec.replace(" ", "").split("-")
+    try:
+        a = int(parts[0])
+        b = int(parts[1]) if len(parts) > 1 and parts[1] else a
+    except ValueError:
+        raise RefusedError(f"Bad sentence range '{spec}'.", fix="Use e.g. --sentences 3 or --sentences 3-5.") from None
+    return a, b
+
+
+def _default_source(ctx, source: str | None) -> str:
+    if source:
+        return source
+    if len(ctx.tl.sources) == 1:
+        return ctx.tl.sources[0].id
+    raise RefusedError("This timeline has several sources.", fix="Pass --source S0n.")
+
+
+@tool(ToolManifest("cut", "Remove a range or whole sentences by hand, refusing mid-word cuts.", "cutting",
                    inputs=["timeline HEAD", "words.json"], outputs=["timeline vN+1"], tests=TESTS,
                    changes_timeline=True))
 def cut(job_id: JobArg,
-        start: Annotated[float, typer.Option("--from", help="Start of the range to remove (s).")],
-        end: Annotated[float, typer.Option("--to", help="End of the range to remove (s).")],
         reason: Annotated[str, typer.Option(help="Why (recorded in the timeline and log).")],
-        source: Annotated[Optional[str], typer.Option(help="Source id: times are source times. Omit to use timeline times.")] = None,
+        start: Annotated[Optional[float], typer.Option("--from", help="Start of the range to remove (s).")] = None,
+        end: Annotated[Optional[float], typer.Option("--to", help="End of the range to remove (s).")] = None,
+        sentences: Annotated[Optional[str], typer.Option(help="Sentence numbers as in analysis/topics.task.md, e.g. 3 or 2-3. Leaves a natural pause.")] = None,
+        source: Annotated[Optional[str], typer.Option(help="Source id: --from/--to are source times. Omit to use timeline times.")] = None,
         snap: Annotated[bool, typer.Option(help="Move edges that fall inside words to the nearest word boundary.")] = False,
         force: Annotated[bool, typer.Option(help="Allow cutting inside a word (not recommended).")] = False,
         version: VersionOpt = None, dry_run: DryRunOpt = False, as_json: JsonOpt = False) -> None:
-    """Remove a range. Edges must fall between words (use --snap to fix them, or --force)."""
+    """Remove a range or whole sentences. With --sentences the cut covers exactly those sentences
+    and leaves a natural pause. With --from/--to, edges must fall between words (--snap fixes
+    them, --force overrides)."""
     ctx = open_edit(job_id, version)
+    if sentences:
+        sid = _default_source(ctx, source)
+        a_i, b_i = _parse_span(sentences)
+        try:
+            removal = plan_sentence_cut(sid, ctx.words[sid], kept_ranges(ctx.tl, sid), ctx.ed, a_i, b_i,
+                                        reason, ctx.env(sid), ctx.shots(sid))
+        except ValueError as e:
+            raise RefusedError(str(e), fix="Sentence numbers are listed in analysis/topics.task.md.") from None
+        if removal is None:
+            raise RefusedError(f"Sentences {sentences} are not in the edit any more.", fix="Check `cutroom show`.")
+        report(apply_and_save(ctx, [removal], tool="cut", title=f"cut sentences {sentences} ({reason})",
+                              dry_run=dry_run), as_json)
+        return
+    if start is None or end is None:
+        raise RefusedError("Give --sentences, or both --from and --to.", fix="See `cutroom cut --help`.")
     if source is None:
         sa, a = _timeline_to_source(ctx.tl, start)
         sb, b = _timeline_to_source(ctx.tl, end)
@@ -154,6 +191,49 @@ def cut(job_id: JobArg,
                                    fix="Use --snap to move to the nearest word boundary, or --force.")
     removal = Removal(source, a, b, kind="manual", reason=reason, confidence=1.0)
     report(apply_and_save(ctx, [removal], tool="cut", title=f"manual cut ({reason})", dry_run=dry_run), as_json)
+
+
+@tool(ToolManifest("move", "Reorder: move sentences (or a source range) to another point in the edit.", "cutting",
+                   inputs=["timeline HEAD", "words.json"], outputs=["timeline vN+1"], tests=TESTS,
+                   changes_timeline=True))
+def move(job_id: JobArg,
+         reason: Annotated[str, typer.Option(help="Why (e.g. 'cold open hook').")],
+         to: Annotated[float, typer.Option("--to", help="Timeline time to insert at (snapped to the nearest clip boundary); 0 = start.")],
+         sentences: Annotated[Optional[str], typer.Option(help="Sentence numbers to move, e.g. 8-9.")] = None,
+         start: Annotated[Optional[float], typer.Option("--from", help="Source start (with --until).")] = None,
+         until: Annotated[Optional[float], typer.Option(help="Source end (with --from).")] = None,
+         source: Annotated[Optional[str], typer.Option(help="Source id (default: the only source).")] = None,
+         version: VersionOpt = None, as_json: JsonOpt = False) -> None:
+    """Move material to another position, e.g. a strong line to the very start as a cold open.
+    With --sentences the block is lifted at the middle of the surrounding pauses, so both the
+    gap it leaves and the moved block keep natural rhythm. Nothing is deleted."""
+    ctx = open_edit(job_id, version)
+    sid = _default_source(ctx, source)
+    kept = kept_ranges(ctx.tl, sid)
+    if sentences:
+        try:
+            a, b = sentence_block(ctx.words[sid], kept, *_parse_span(sentences), env=ctx.env(sid),
+                                  shots=ctx.shots(sid), pad=ctx.ed["pad_before_word"])
+        except ValueError as e:
+            raise RefusedError(str(e), fix="Sentence numbers are listed in analysis/topics.task.md.") from None
+    elif start is not None and until is not None:
+        a, b = start, until
+    else:
+        raise RefusedError("Give --sentences, or --from and --until.", fix="See `cutroom move --help`.")
+    tl = ctx.tl.model_copy(deep=True)
+    moved, at = move_range(tl, sid, a, b, to, reason)
+    from cutroom.timeline.ops import check_cut_points
+
+    problems = check_cut_points(tl, ctx.words)
+    if problems:
+        raise RefusedError("The move would cut inside a word: " + problems[0], fix="Use --sentences, or adjust times.")
+    text = ctx.words[sid].text_between(a, b) if ctx.words.get(sid) else ""
+    summary = f"moved {sid} {tc(a)}–{tc(b)} to {tc(at)} ({reason}): \"{text[:60]}\""
+    ctx.job.log.section(f"move (from v{ctx.base:03d})")
+    n = store.save_new(ctx.job, tl, command="move", summary=summary, parent=ctx.base)
+    emit(as_json, {"version": n, "moved_clips": [c.id for c in moved], "inserted_at_s": round(at, 3)})
+    if not as_json:
+        out.print(f"{summary} → v{n:03d}")
 
 
 @tool(ToolManifest("restore", "Put a previously cut range back (by cut id).", "cutting",

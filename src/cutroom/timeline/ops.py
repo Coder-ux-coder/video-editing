@@ -150,7 +150,11 @@ def remove_ranges(tl: Timeline, removals: list[Removal], *, tool: str, version: 
         for r in sorted(rs, key=lambda r: r.src_in):
             parts = _intersect(r.src_in, r.src_out, available)
             for a, b in parts:
-                applied.append(new_cut(r, a, b))
+                if len(parts) > 1:   # split by earlier cuts: each piece names only its own words
+                    r_part = Removal(r.source, a, b, r.kind, r.reason, r.confidence, _text(words.get(r.source), a, b))
+                    applied.append(new_cut(r_part, a, b))
+                else:
+                    applied.append(new_cut(r, a, b))
                 ranges.append((a, b))
             # Each range can only be removed once, even if two removals overlap.
             available = [p for a0, b0 in available for p in _subtract(a0, b0, parts)]
@@ -232,3 +236,47 @@ def check_cut_points(tl: Timeline, words: dict[str, WordsFile | None], track: st
                                     f"'{w.text}' ({w.start:.3f}-{w.end:.3f})")
                     break
     return problems
+
+
+def split_at(tl: Timeline, source: str, t: float, track: str = "V1") -> None:
+    """Split the clip of ``source`` that contains source time ``t`` (no-op at an edge)."""
+    for c in tl.track_clips(track):
+        if c.source == source and c.src_in + EPS < t < c.src_out - EPS:
+            if c.locked:
+                raise RefusedError(f"Clip {c.id} is locked.", fix="Unlock it first.")
+            right = c.model_copy(update={"id": tl.next_id("c", [x.id for x in tl.clips]), "src_in": round(t, 3),
+                                         "start": c.to_timeline(t)})
+            c.src_out = round(t, 3)
+            tl.clips.append(right)
+            return
+
+
+def layout(tl: Timeline, ordered: list[Clip]) -> None:
+    """Place clips back to back in exactly this order."""
+    t = 0.0
+    for c in ordered:
+        c.start = round(t, 6)
+        t += c.duration
+
+
+def move_range(tl: Timeline, source: str, a: float, b: float, to: float, reason: str,
+               track: str = "V1") -> tuple[list[Clip], float]:
+    """Lift source range [a, b) out of the edit and insert it at timeline time ``to``
+    (snapped to the nearest clip boundary). Returns the moved clips and the actual position."""
+    split_at(tl, source, a, track)
+    split_at(tl, source, b, track)
+    order = tl.track_clips(track)
+    moving = [c for c in order if c.source == source and c.src_in >= a - EPS and c.src_out <= b + EPS]
+    if not moving:
+        raise JobError(f"Nothing of {source} {a:.3f}-{b:.3f} is in the edit.", fix="Check the range with `cutroom show`.")
+    rest = [c for c in order if c not in moving]
+    boundaries = [0.0]
+    t = 0.0
+    for c in rest:
+        t += c.duration
+        boundaries.append(t)
+    k = min(range(len(boundaries)), key=lambda i: abs(boundaries[i] - to))
+    for c in moving:
+        c.reason = (c.reason + "; " if c.reason else "") + f"moved: {reason}"
+    layout(tl, rest[:k] + moving + rest[k:])
+    return moving, boundaries[k]

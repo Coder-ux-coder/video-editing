@@ -48,3 +48,52 @@ word-boundary refinement; acoustic filler/stumble detection; audio and visual re
 frame sampler; the timeline schema with validate/diff/show/undo; remove-silence,
 remove-fillers, detect-retakes; rough-cut render with click-free joins; first playbook prompts.
 Acceptance: a 10-minute talking head becomes a clean rough cut with a full change log.
+
+## Phase 1: Perception and transcript-driven cutting (2026-11-07)
+
+**Built**
+
+- Timeline model (`cutroom.timeline/1`) with immutable versions, HEAD/undo/checkout/snapshot,
+  validate, diff and the outline view; schema docs generated from the code.
+- Perception: word-boundary refinement against the audio; untranscribed voiced sounds (likely
+  fillers) and breaths; audio report (EBU R128 loudness, true peak, noise floor, SNR, clipping,
+  silences); visual report (shots, faces, framing, face-based exposure, sharpness, colour cast,
+  contact sheets); pacing map; footage-type guess; topic map as an agent task; frame sampler;
+  `cutroom analyze` writes a one-page `analysis/summary.md`.
+- Cutting: `remove-silence`, `remove-fillers`, `detect-retakes`, `cut` (ranges or whole
+  sentences), `restore`, `move` (reorder, e.g. cold opens), `rough-cut` (one command, one version per step).
+- Render: frame-exact video runs, sample-accurate click-free audio, YouTube-compliant MP4
+  (no edit lists, priming compensated), self-checks in every render report.
+- Tool plugin registry, logged FFmpeg passthrough, `docs/EDITING_STANDARDS.md` (cited),
+  playbook prompts 00–04, default style file.
+
+**Acceptance run** (10-min talking-head interview: "Dan Odess – Trackways Interview", National
+Park Service, public domain, 1080p, two-camera program cut). Followed `prompts/00`–`04` as the editor:
+
+| Step | Result |
+|---|---|
+| `analyze` | 1,489 words; 278 pause edges refined; 20 untranscribed voiced sounds; 27 shots (wide/close alternating); footage type talking_head (0.8); audio −20.6 LUFS, peak −5.8 dBTP, SNR 41.9 dB; no visual flags after face-based exposure |
+| Topic map | 11 topics written by the agent, validated (`topics --check`) |
+| `rough-cut` | 70 long pauses shortened (53.9 s), 6 acoustic fillers, 12 stumbles/false starts (5.9 s); nothing meaningful cut |
+| Editorial cuts | Reply to off-camera prompt, name spelling + interviewer question, closing chatter (`cut --sentences`) |
+| Cold open | Key finding moved to the start (`move --sentences 8-9 --to 0`); the join lands on a camera change |
+| Result | 10:16.0 → 9:07.8; 84 clips; `validate` passes (no mid-word cuts) |
+| Preview render | 72 s; 16,417/16,417 frames; 0 clicks at 83 joins; no edit lists |
+| Final render (1080p, x264 slow CRF 17) | 10 min 41 s on 4 CPU cores (≈1.2× real time); 243 MB; all checks pass |
+| Visual inspection | Frames around the cold-open join and its hole checked by eye; found flash shots → fixed by snapping cuts to camera changes (4 → 2) |
+
+**Tested**: 115 automated tests (all passing), including frame-exact rendering (frame numbers encoded in
+brightness), A/V sync ≤ 12 ms (measured ≤ 3 ms), click detection (hard cuts detected, fades
+remove them), editorial retake rules from real speech, version store, plugins, playbook commands.
+
+**Known limits**
+
+- 2 flash shots remain where the source's own camera change falls mid-speech: fix needs an L-cut or punch-in (Phases 3–4).
+- No loudness normalisation yet (the rough cut keeps the source's −20.6 LUFS; Phase 2 brings it to −14).
+- Speakers are not separated (interviewer questions found by reading; diarization in Phase 5).
+- Footage-type detection is heuristic; screen-recording detection untested on real captures.
+- Windows/macOS/GPU paths still unrun on real hardware.
+
+**Next: Phase 2** (audio polish and captions): voice chain, loudness normalisation, three
+animated caption styles with Remotion, SRT/VTT export. Acceptance: loudness on target, caption
+sync ≤ 80 ms, no caption in unsafe zones.

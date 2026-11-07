@@ -198,3 +198,39 @@ def test_refinement_leaves_continuous_speech_alone():
            {"text": "b", "start": 1.3, "end": 1.6, "prob": 0.9, "segment": 0}]
     words, _ = refine_words(raw, env, -45.0, dur)
     assert words[0]["end"] == 1.3 and words[1]["start"] == 1.3
+
+
+def test_sentence_cut_and_block_leave_natural_pauses():
+    from cutroom.timeline.planning import plan_sentence_cut, sentence_block
+
+    wf = seq("Intro line here. Hook line here. Body line here.", gaps={3: 0.6, 6: 0.6})
+    r = plan_sentence_cut("S01", wf, kept(wf), ED, 1, 1, "test")
+    hook = wf.words[3:6]
+    assert r.src_in <= hook[0].start and r.src_out >= hook[-1].end
+    pause = (r.src_in - wf.words[2].end) + (wf.words[6].start - r.src_out)
+    assert pause == pytest.approx(ED["keep_pause_sentence_end"], abs=0.02)
+    a, b = sentence_block(wf, kept(wf), 1, 1)
+    assert wf.words[2].end < a < hook[0].start and hook[-1].end < b < wf.words[6].start
+
+
+def test_move_range_reorders_without_losing_material():
+    from test_timeline import make_tl
+
+    from cutroom.timeline.ops import move_range
+
+    tl = make_tl(20.0)
+    moved, at = move_range(tl, "S01", 8.0, 10.0, 0.0, "cold open")
+    order = [(c.src_in, c.src_out) for c in tl.track_clips()]
+    assert order == [(8.0, 10.0), (0.0, 8.0), (10.0, 20.0)] and at == 0.0
+    assert tl.duration == pytest.approx(20.0) and "moved: cold open" in moved[0].reason
+
+
+def test_cut_moves_onto_nearby_camera_change():
+    wf = seq("I went home. Then I slept for a very long time.", gaps={3: 1.5})
+    home, then = wf.words[2], wf.words[3]
+    plain = next(r for r in plan_silence("S01", wf, kept(wf), ED) if r.kind == "silence")
+    shot = plain.src_out + 0.05           # camera change in the kept pause, just before the pad
+    snapped = next(r for r in plan_silence("S01", wf, kept(wf), ED, shots=[shot]) if r.kind == "silence")
+    assert snapped.src_out == pytest.approx(shot) and snapped.src_out <= then.start - 0.02
+    far = next(r for r in plan_silence("S01", wf, kept(wf), ED, shots=[plain.src_out + 2.0]) if r.kind == "silence")
+    assert far.src_out == plain.src_out   # too far: untouched

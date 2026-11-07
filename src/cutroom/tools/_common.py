@@ -32,6 +32,16 @@ class EditContext:
             self.envs[sid] = np.load(p)["env"] if p.is_file() else None
         return self.envs[sid]
 
+    def shots(self, sid: str) -> list[float]:
+        """The source's own camera changes (from the visual report), to hide cuts in them."""
+        import json
+
+        p = self.job.root / "analysis" / sid / "visual_report.json"
+        if not p.is_file():
+            return []
+        rep = json.loads(p.read_text(encoding="utf-8"))
+        return [sh["start"] for sh in rep.get("shots", [])[1:]]
+
     @property
     def ed(self) -> dict:
         return self.style["editing"]

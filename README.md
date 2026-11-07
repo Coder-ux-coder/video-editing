@@ -8,7 +8,7 @@ Everything about an edit is inspectable text and data (transcripts, reports, a v
 JSON timeline), so the agent can read, change, diff and re-render it, and a person can
 read `log.md` to understand every decision.
 
-**Status: Phase 0 (foundations) complete.** See `docs/CAPABILITIES.md` for what works today.
+**Status: Phase 1 (perception and transcript-driven cutting) complete.** See `docs/CAPABILITIES.md` for what works today and `docs/PHASES.md` for phase reports.
 
 ## Set up
 
@@ -31,20 +31,24 @@ then runs `cutroom doctor --select-asr`, which benchmarks speech models on your 
 downloads the best one, and transcribes a test clip end to end. Add `--yes` to accept
 install prompts, or `--dry-run` to see what would happen.
 
-## Use (Phase 0)
+## Use
 
 ```bash
 source .venv/bin/activate            # Windows: .venv\Scripts\activate
 cutroom doctor                       # verify the machine
 cutroom new acme-launch --client acme
 cutroom ingest acme-launch ~/footage/interview.mp4
-cutroom proxy acme-launch            # 540p proxies + analysis audio
-cutroom transcribe acme-launch       # word-level transcript
-cutroom status acme-launch
+cutroom analyze acme-launch          # transcript, audio/visual reports, contact sheets, summary.md
+cutroom rough-cut acme-launch        # silence, fillers, retakes removed; preview rendered
+cutroom show acme-launch             # read the edit: every clip, every cut and why
+cutroom cut acme-launch --sentences 2-3 --reason "interviewer question"
+cutroom move acme-launch --sentences 8-9 --to 0 --reason "cold open"
+cutroom render acme-launch --mode final
 ```
 
-The readable transcript is at `jobs/acme-launch/analysis/S01/transcript.txt`; the decision
-log is `jobs/acme-launch/log.md`. Every command has `--help` and `--json`.
+Start with `jobs/<id>/analysis/summary.md`, then the outline (`cutroom show`). The decision log
+is `jobs/<id>/log.md`; every version is in `jobs/<id>/versions/` (`cutroom versions`, `cutroom diff`,
+`cutroom undo`). Every command has `--help` and `--json`. An agent should follow `prompts/00_orchestrator.md`.
 
 ## Where things are
 
@@ -52,7 +56,10 @@ log is `jobs/acme-launch/log.md`. Every command has `--help` and `--json`.
 |---|---|
 | `docs/CHARTER.md` | Decisions, detected machine, open questions |
 | `docs/ARCHITECTURE.md` | How the system works and the phase plan |
+| `docs/EDITING_STANDARDS.md` | What "professional" means, with sources; the defaults behind the style file |
 | `docs/TOOLS.md` | Every command (generated from the CLI) |
+| `docs/TIMELINE_SCHEMA.md` | The project file, field by field (generated) |
+| `prompts/` | The agent playbook |
 | `docs/LICENSES.md` | Every dependency, model and asset, with its licence |
 | `docs/CAPABILITIES.md` | What it can and cannot do yet |
 | `jobs/<id>/` | One workspace per job (not committed) |
