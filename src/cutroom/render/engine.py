@@ -483,10 +483,15 @@ def check_caption_sync(wav: Path, props: dict, *, max_ms: float = 80.0, joins_s:
     sil = silence_runs(env, thr, 0.12)
     fps = props["fps"]
     diffs = []
-    quiet = at_join = 0
+    quiet = at_join = trimmed = 0
     joins_s = sorted(joins_s or [])
     prev_end = 0.0
     for c in props["cues"]:
+        if c.get("trimmed"):
+            # Starts late on purpose: a graphic showing these words hid it (kinetic text).
+            trimmed += 1
+            prev_end = c["lines"][-1][-1]["to"] / fps
+            continue
         word_t = c["lines"][0][0]["from"] / fps
         w_end = max(word_t + 0.03, min(c["lines"][0][0]["to"] / fps, word_t + 0.15))
         i0, i1 = int(word_t / 0.005), int(w_end / 0.005)
@@ -511,10 +516,12 @@ def check_caption_sync(wav: Path, props: dict, *, max_ms: float = 80.0, joins_s:
         diffs.append({"t": round(c["from"] / fps, 3), "onset": round(onset, 3),
                       "ms": round((c["from"] / fps - onset) * 1000, 1)})
     if not diffs:
-        return {"measured": 0, "skipped_quiet_first_word": quiet, "skipped_onset_at_join": at_join}
+        return {"measured": 0, "skipped_quiet_first_word": quiet, "skipped_onset_at_join": at_join,
+                "skipped_hidden_by_graphic": trimmed}
     ad = sorted(abs(d["ms"]) for d in diffs)
     within = sum(d <= max_ms for d in ad) / len(ad)
     return {"measured": len(ad), "skipped_quiet_first_word": quiet, "skipped_onset_at_join": at_join,
+            "skipped_hidden_by_graphic": trimmed,
             "median_ms": ad[len(ad) // 2],
             "p95_ms": ad[int(0.95 * (len(ad) - 1))],
             "max_ms": ad[-1], "within_80ms": round(within, 3),

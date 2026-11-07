@@ -48,7 +48,8 @@ def _parse_params(items: list[str] | None) -> dict:
         if "=" not in it:
             raise RefusedError(f"Bad --param '{it}'.", fix="Use --param key=value.")
         k, v = it.split("=", 1)
-        v = v.strip()
+        k = k.strip()
+        v = v if k in ("prefix", "suffix") else v.strip()     # a suffix " years" keeps its space
         if v.startswith(("[", "{")):
             try:
                 v = json.loads(v)

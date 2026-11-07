@@ -93,7 +93,7 @@ def hide_captions_under(cues: list[dict], graphics: list[dict]) -> tuple[list[di
             else:
                 a = max(a, g1)              # graphic ends mid-caption: caption appears after it
         if b - a >= 6:                      # shorter than ~0.2 s would only flash
-            out.append({**c, "from": a, "to": b})
+            out.append({**c, "from": a, "to": b, **({"trimmed": True} if a != c["from"] else {})})
     return out, touched
 
 

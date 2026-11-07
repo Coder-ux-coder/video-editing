@@ -3,7 +3,7 @@
 An honest map of what Cutroom can do today, what it can do partially, and what it cannot
 do yet, with the plan for each gap. Updated at the end of every phase.
 
-Last updated: Phase 3 (motion graphics).
+Last updated: Phase 4 (review loop).
 
 ## Can do (built and tested)
 
@@ -42,12 +42,14 @@ Last updated: Phase 3 (motion graphics).
 | Overlay transitions | `transition` | dip, flash, whip, swipe, glitch, centred on a cut and moving with it |
 | Theme switch | `style --client-style` | Client themes (`styles/clients/*.style.yaml`) restyle every graphic and caption without touching the edit |
 | Graphics visual regression | tests | Golden still for every variant, compared with a tolerance |
+| Automatic review | `review` | Audio (loudness, peaks, clicks, pauses/fillers left, level jumps between takes), cuts (mid-word, flash shots, undisguised jump cuts, clipped words), captions (missing, stale words or timing, safe zone, sync, reading speed), graphics (on faces, safe area, unsourced, no source, lost moment, too short, crowded), video (frames, black/frozen frames, quality flags), structure (ending, opening, static stretches, low-value topics); report with severity, evidence and fix command; scorecard; contact sheets for the agent to look at |
+| Autonomous fix loop | `review --fix` | Up to 4 rounds of review → safe fixes (pauses, fillers, flash shots, punch-ins, graphics, captions, audio) → review; stops at the human gate. Seeded-defect test: 9/9 found and fixed in one fix round |
 
 ## Partially
 
 | Capability | Gap | Plan |
 |---|---|---|
-| Flash shots where the source's own camera change falls mid-speech | Detected and reported, not fixed (2 in the 10-minute test); punch-ins do not help (the angle really changes) | Review loop nudges the join or uses the other angle (Phase 4) |
+| Flash shots where the source's own camera change falls mid-speech | `review --fix` trims word-free slivers onto the camera change or lengthens the shot into a neighbouring pause; a sliver that holds a word with no pause to borrow is left for a person | Move the join by a word (needs judgement) |
 | Speaker identification | Off-mic voices hinted by level (⟪quiet⟫); interviewer questions identified by the agent from content | Diarization (speaker embeddings, non-gated free model) in Phase 5 |
 | Filler/stumble transcription | Whisper drops some; acoustic detection catches voiced sounds in pauses, not fillers fused into words | Measure on more real footage; optional second verbatim pass |
 | Footage-type detection | Heuristic; screen-recording detection untested on real screen captures | Test on real samples; add OCR text density |
@@ -56,13 +58,14 @@ Last updated: Phase 3 (motion graphics).
 | Caption render time | Remotion draws every frame: ~7 min for a 9-min 540p preview on 4 cores | Skip frames with no caption; render only changed frames (Phase 8 profiling) |
 | Graphics size estimate | Placement uses a size hint per template; long text can be wider than estimated (the render check then fails and says so) | Measure text with the theme fonts before placing |
 | Crossfades | Transitions are overlays over a cut; true video crossfades (overlapping clips) are not rendered | Add when a client style asks for them |
+| Review of taste | Framing, expressions at cut points, whether graphics help, whether the hook lands: contact sheets are produced, the agent judges them | Expression/blink detection at cut points |
+| Black/frozen frame and level checks | Measured on the render (FFmpeg blackdetect/freezedetect) and on per-word levels; lip sync is not measured | Lip-sync check for separately recorded audio |
 | Audio stages | EQ is a gentle fixed curve, not matched to the voice; no hum removal, no music/speech separation | Measured EQ and hum notch (when a client needs it); speech/music segmentation with music (Phase 6) |
 
 ## Cannot do yet
 
 | Capability | Phase |
 |---|---|
-| Automatic review loop with scorecard and autonomous fixes | 4 |
 | Shorts: moment selection, 9:16 reframing with face tracking, safe-zone captions | 5 |
 | B-roll, music, SFX, thumbnails | 6 |
 | Client styles, revision notes → timeline edits, OTIO/FCPXML export, delivery package | 7 |

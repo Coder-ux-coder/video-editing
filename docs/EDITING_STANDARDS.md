@@ -214,6 +214,15 @@ riding: dynamics stay natural. Every render measures the final file.
 25. Flashing or strobing effects (also an accessibility risk).
 26. Several CTAs fighting each other instead of one clear ask.
 
+How `cutroom review` covers these today (Phase 4): **automatic check** for 1 (weak opening), 5
+(captions placed off the mouth; safe zone measured), 8 (graphics too short), 12 (clicks), 13 (cuts
+inside words, words within 15 ms of a cut), 14 (undisguised mid-sentence jump cuts), 15 (pauses
+the style would still shorten), 19 partly (captions out of step with the words), 20 (unsourced
+numbers), 21 (one caption style per timeline by design), 6 partly (level jumps between distant
+takes; loudness on target). By design rather than by check: 4 and 10 (design tokens), 2
+(punch-ins only at same-angle jump cuts). **Looked at by the agent** on the contact sheets: 3, 7,
+9, 11, 16, 17, 18, 22–26 (music, b-roll and Shorts arrive in Phases 5–6, with their own checks).
+
 ## 14. What automation cannot judge (and how Cutroom compensates)
 
 | Cannot judge reliably | Compensation |

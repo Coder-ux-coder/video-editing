@@ -213,6 +213,7 @@ def test_title_cards_hide_captions_they_overlap():
     kept, touched = hide_captions_under(cues, graphics)
     assert touched == 3
     assert [(c["from"], c["to"]) for c in kept] == [(0, 25), (65, 90), (90, 120)]
+    assert [bool(c.get("trimmed")) for c in kept] == [False, True, False]   # starts late on purpose: not a sync error
 
 
 # ------------------------------------------------------------------ punch-ins

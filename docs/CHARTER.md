@@ -156,6 +156,18 @@ Conclusions:
 | Fully opaque overlay frames are rewritten as RGBA | Chrome writes a fully opaque frame (a dip at its peak) as RGB; in an RGBA sequence that would switch FFmpeg's input pixel format mid-stream. |
 | Visual regression goldens for every template variant | 35 stills at 320x180 in `tests/golden/graphics/`, compared with a tolerance (mean difference ≤ 2/255, ≤ 1 % of pixels off by > 48), regenerated only on purpose and inspected. |
 
+### 4.7 Phase 4 decisions
+
+| Decision | Why / evidence |
+|---|---|
+| Checks ask the editing tools' own planners what they would still do, on a copy of the timeline | First version counted planned removals directly: on the interview it reported 123 "long pauses" that `remove-silence` correctly ignored (they lay in material already cut, out of order after the cold-open move). A check and its fix must never disagree, or the loop runs fixes that do nothing. |
+| Flash shots fixed without touching words | Trim a word-free sliver so the cut lands on the source's camera change, else lengthen the shot into the neighbouring removed pause (`extend_clip_edge`, refuses to bring back words). A sliver holding a word with no pause to borrow is left for a person: moving the join by a word changes what is said. |
+| Fix order inside a round, and no fights between fixes | Pauses and fillers first, then flash shots recomputed on that edit, then punch-ins, graphics, captions, audio. Found in the acceptance run: flash fixes before `remove-silence` were undone by it. Pauses next to a source camera change are not counted as "too long" (that is where flash fixes lengthen them), so the loop converges instead of cycling. |
+| Level jumps compared only across distant takes, on per-word levels | Comparing one second of audio on each side of every join flagged natural sentence-end declination (−36 dB trailing off vs −24 dB starting the next sentence) dozens of times. Within one continuous take the level changes are the speaker's own. |
+| Caption staleness checked on timing as well as words | Restoring a pause or a filler leaves the caption words identical but shifts them; the first version missed this seeded defect (only the sync check noticed, and that is not auto-fixable). |
+| Ready = no blocker and no major | Minors and polish are reported with fixes; the loop never claims taste. The report ends with what automation cannot judge, and the agent must look at the contact sheets. |
+| A review reuses the render of the same version | Versions are immutable, so a render of vNNN is still valid; this halves the loop's render time. |
+
 ## 5. Decisions you made
 
 | Date | Question | Your answer | Consequence |

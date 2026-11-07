@@ -107,7 +107,7 @@ def validate_params(spec: TemplateSpec, params: dict, variant: str | None) -> tu
             continue
         v, t = params[k], p["type"]
         if t == "string":
-            v = str(v).strip()
+            v = str(v) if k in ("prefix", "suffix") else str(v).strip()   # " years": the space is meant
             if len(v) > p.get("max_len", 200):
                 raise RefusedError(f"'{k}' is {len(v)} characters; at most {p['max_len']} fit this template.",
                                    fix="Shorten the text (graphics are read in a glance).")

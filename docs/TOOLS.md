@@ -35,6 +35,7 @@ Commands provided by modules in `src/cutroom/tools/` (see `registry.py`).
 | `templates` | graphics | List motion-graphics templates, their variants and parameters. | no | `tests/test_graphics.py` |
 | `transition` | graphics | Put an overlay transition (dip, flash, whip, swipe, glitch) on a cut. | yes | `tests/test_graphics.py` |
 | `render` | render | Render a timeline version (fast preview or full-quality final). | no | `tests/test_render.py` |
+| `review` | review | Review a version: render, automatic checks, frame sheets, report and scorecard; --fix loops. | yes | `tests/test_review.py` |
 | `assemble` | timeline | Create the first timeline: every main source, whole, in order. | yes | `tests/test_timeline.py` |
 | `checkout` | timeline | Set HEAD to any version (later edits branch from it). | no | `tests/test_timeline.py` |
 | `diff` | timeline | Human-readable change summary between two timeline versions. | no | `tests/test_timeline.py` |
@@ -460,6 +461,27 @@ Parameters:
 - `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
 - `CUT_IDS...`: Cut ids, e.g. x0012 (see `show --format cuts`).
 - `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom review`
+
+Checks audio (loudness, peaks, clicks, pauses and fillers left, level jumps), cuts (mid-word
+cuts, flash shots, undisguised jump cuts, clipped words), captions (missing, stale, safe zone,
+sync), graphics (on faces, outside the safe area, unsourced, detached, too short, crowded),
+video (frame count, black or frozen frames, quality flags) and structure (ending, opening,
+static stretches, low-value topics). Writes review/vNNN/report.md with issues by severity,
+evidence and a fix command, a scorecard, and contact sheets to look at. With --fix, applies
+the automatic fixes and repeats until no blocker or major remains or --rounds is reached;
+delivery still needs the human gate.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--fix`: Apply automatic fixes and review again, up to --rounds.
+- `--rounds`: Maximum review rounds with --fix. (default: 4)
+- `--fresh`, `--no-fresh`: Render again even if this version has a render.
+- `--no-render`: Checks that need no render only (fast).
 - `--json`: Print machine-readable JSON on stdout.
 
 ## `cutroom rough-cut`

@@ -223,14 +223,20 @@ of the edit), `versions`, `undo`, `checkout`, `snapshot`. Field reference: `docs
   than encode speed. Trade-off: finals take longer on slow machines.
 - **Previews** burn in timecode and clip labels so frames in review reports can be traced.
 
-### 4.6 Review layer [P4]
+### 4.6 Review layer [built]
 
-`cutroom review <job> [--version vNNN]`: preview render → automatic checks (audio, cuts,
-captions, graphics, video, structure; thresholds come from the style file) → dense
-frame sampling into annotated contact sheets that the agent opens and judges →
-`review/vNNN/report.md` with prioritised issues (blocker/major/minor/polish), evidence and a
-proposed fix as a concrete command → scorecard. The orchestrator applies fixes and repeats
-up to 4 rounds or until no blockers/majors remain, then stops and reports.
+`cutroom review <job> [--version vNNN]`: preview render (reused when that exact version was
+rendered: versions are immutable) → automatic checks (`review/checks.py`: audio, cuts, captions,
+graphics, video, structure; thresholds from the style file) → contact sheets (a frame every 4 s
+plus a frame at every issue) that the agent opens and judges → `review/vNNN/report.md` and
+`review.json` with issues by severity (blocker/major/minor/polish), evidence and a fix command
+→ scorecard (0–10 per category; ready = no blocker and no major).
+Checks reuse the editing tools' own planners on a copy of the timeline (e.g. "pauses left" =
+what `remove-silence` would really remove now), so a check and its fix never disagree.
+`review --fix` (`review/fixes.py`) applies the safe fixes as ordinary commands in dependency
+order (pauses and fillers → flash shots recomputed on the new edit → punch-ins → graphics →
+captions → audio), each a new version, and repeats up to 4 rounds; judgement calls (a flash shot
+holding a word, a weak opening, a graphic without a source) are left with a manual fix command.
 
 ### 4.7 Style layer [built; reference analysis P6]
 

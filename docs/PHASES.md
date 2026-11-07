@@ -221,3 +221,88 @@ lower third, golden images for every variant, the theme switch measured on pixel
 
 **Next: Phase 4** (review loop): `cutroom review` with automatic checks, frame sheets, report and
 scorecard, and the autonomous fix loop. Acceptance: seeded defects are detected and fixed.
+
+## Phase 4: Review loop (2026-11-07)
+
+**Built**
+
+- `cutroom review <job>`: preview render (reused for an already-rendered version), automatic
+  checks in six categories, contact sheets (a frame every 4 s, a frame at every issue),
+  `review/vNNN/report.md` + `review.json` with issues by severity, evidence and a fix command,
+  scorecard 0–10 per category, "ready for the human gate" = no blocker and no major.
+- Checks: audio (no voice chain, loudness, true peak, clicks, pauses and fillers the tools would
+  still remove, level jumps between distant takes), cuts (mid-word cuts, invalid timeline, flash
+  shots, undisguised mid-sentence jump cuts, words clipped by a cut), captions (missing, stale
+  words or timing, safe zone, sync, reading speed), graphics (unsourced numbers, no source, lost
+  moment, too short, on a face, outside the safe area, crowded), video (frame count, duration,
+  edit lists, black and frozen frames, analysis quality flags on used shots), structure (ends
+  mid-sentence, weak opening, long static stretches, low-value topics kept).
+- `review --fix`: up to 4 rounds of review → safe fixes as ordinary commands (remove-silence,
+  remove-fillers, flash-shot trim/extension, punch-in --auto, graphic-remove, graphic-move,
+  captions, audio) → review. New `extend_clip_edge` (lengthen a clip into a removed pause, never
+  over words) and `graphic-move`.
+- Playbook `09_review_loop.md`; editing standards §13 now says which tells are checked
+  automatically and which the agent judges on the sheets.
+
+**Bugs found and fixed on the way**
+
+- "123 long pauses" on an edit already cleaned: the check counted planner proposals in material
+  already cut (out of order after the cold open). Checks now ask what the tool would really remove.
+- Level jumps flagged natural sentence-end declination dozens of times: now per-word levels,
+  distant takes only.
+- Stale caption timing (same words, shifted) was missed: now detected and re-planned.
+- Flash-shot fixes were undone by `remove-silence` later in the same round: fix order changed and
+  pauses at camera changes protected, so the loop converges in one fix round.
+- Caption sync counted a caption deliberately delayed by kinetic text as 2.8 s late.
+- Graphics without any source reference were not flagged.
+- A counter suffix " years" lost its space (shown "10,000years").
+
+**Acceptance run 1: seeded defects** (`scripts/acceptance/phase4_review.sh`; a 2:40 excerpt of the
+NPS interview edited cleanly to v013, then 9 defects planted by `phase4_seed.py`)
+
+| Seeded defect | Found by | Fixed by the loop |
+|---|---|---|
+| 2 shortened pauses restored | audio.long_pauses | remove-silence |
+| a removed "um" restored | audio.fillers | remove-fillers |
+| voice chain removed | audio.no_chain | audio |
+| captions left stale by the restores | captions.stale (timing) | captions --style clean |
+| list graphic forced over the face | graphics.face (26 % of the head, measured) | graphic-move --replace |
+| counter showing 30,000 (never said) | graphics.unsourced (blocker) | graphic-remove |
+| lower third shown 0.6 s | graphics.too_short | graphic-move --duration 1.4 |
+| punch-ins removed | cuts.jump_cuts | punch-in --auto |
+| (also found: 3 real flash shots in the clean edit) | cuts.flash_shot | lengthened into the pause |
+
+All 9 seeds detected; round 1 (16 issues) → 1 fix round (9 commands) → round 2: 0 blockers, 0 majors,
+ready for the human gate. The 2 remaining minors are the seeded graphics that cite no source
+(left for a person by design). Render checks on the result all pass (−14.2 LUFS, −1.4 dBTP,
+0 flash shots, graphics off faces). 3 min 31 s on 4 cores including both renders.
+
+**Acceptance run 2: the full 10-minute interview** (v093, the Phase 3 result)
+
+| Round | Version | Blocker / major / minor / polish | Fixes applied |
+|---|---|---|---|
+| 1 | v093 | 0 / 4 / 1 / 2 | 3 flash shots lengthened into the neighbouring pause (0.15, 0.07, 0.28 s); captions re-planned |
+| 2 | v096 | 0 / 1 / 1 / 2 | none safe: stops |
+
+The remaining major is a 0.26 s flash shot whose sliver holds the start of a word and has no
+pause to borrow: moving that join changes what is said, so it is left for a person with the
+command to do it. All 10 render checks pass on v096 (−14.2 LUFS, −1.5 dBTP, captions 0 of 1,147
+frames outside the safe zone and 95.5 % within 80 ms, graphics off faces). 7 min per round on 4
+cores (one full render each; round 1 reused the existing render).
+
+**Tested**: 175 automated tests (165 fast + 10 slow, all passing); `tests/test_review.py` seeds
+each defect type in a synthetic timeline and checks it is found, fixable and scored.
+
+**Known limits**
+
+- Taste is not checked: expressions at cut points, whether graphics help, whether the hook lands.
+  The report lists sheets to look at and what automation cannot judge.
+- A flash shot that holds a word, a weak opening, a graphic without a source and low-value
+  topics are reported with a fix command but never fixed automatically.
+- No lip-sync measurement (matters only for separately recorded audio).
+- Each round renders the whole video (7 min for 9 min of output here); reviewing only changed
+  ranges is a Phase 8 optimisation.
+
+**Next: Phase 5** (Shorts): moment finding and scoring, 9:16 reframing with a smoothed face
+track or blurred fill, hook text, captions in the Shorts safe zone, titles and descriptions.
+Acceptance: 5 Shorts from the interview.
