@@ -245,6 +245,7 @@ def run_ffmpeg(
     duration: float | None = None,
     on_progress: Callable[[float], None] | None = None,
     timeout: float | None = None,
+    cwd: str | os.PathLike | None = None,
 ) -> str:
     """Run ffmpeg with ``args`` (everything after the binary name).
 
@@ -256,7 +257,7 @@ def run_ffmpeg(
     ffmpeg = require_tool("ffmpeg")
     cmd = [str(ffmpeg), "-hide_banner", "-nostdin", "-progress", "pipe:1", "-nostats",
            *[str(a) for a in args]]
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd,
                             text=True, encoding="utf-8", errors="replace")
     stderr_lines: deque[str] = deque(maxlen=4000)
 

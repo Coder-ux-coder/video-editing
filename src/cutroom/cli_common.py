@@ -22,6 +22,24 @@ VersionOpt = Annotated[Optional[str], typer.Option("--version", "-v", help="Time
 DryRunOpt = Annotated[bool, typer.Option("--dry-run", help="Show what would change without saving a new version.")]
 
 
+@contextmanager
+def silenced(enabled: bool = True) -> Iterator[None]:
+    """Swallow stdout output of nested commands (so a composite command prints one JSON object)."""
+    if not enabled:
+        yield
+        return
+    import io
+
+    # Console.file falls back to the *current* sys.stdout when no file is pinned (_file is
+    # None). Restore exactly that state, never pin the stream that happened to be current.
+    saved = out._file
+    out.file = io.StringIO()
+    try:
+        yield
+    finally:
+        out._file = saved
+
+
 def emit(as_json: bool, data: dict) -> None:
     if as_json:
         out.print_json(json.dumps(data, default=str))

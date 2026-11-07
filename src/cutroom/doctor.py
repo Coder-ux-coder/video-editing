@@ -108,7 +108,8 @@ def check_python(r: DoctorReport, machine) -> None:
 
 
 def check_packages(r: DoctorReport) -> None:
-    pkgs = ["faster-whisper", "ctranslate2", "av", "numpy", "onnxruntime", "pydantic", "typer", "pyyaml", "psutil"]
+    pkgs = ["faster-whisper", "ctranslate2", "av", "numpy", "onnxruntime", "pydantic", "typer", "pyyaml", "psutil",
+            "soundfile", "opencv-python-headless"]
     versions = {p: _pkg_version(p) for p in pkgs}
     missing = [p for p, v in versions.items() if v is None]
     if missing:
@@ -495,6 +496,15 @@ def run_doctor(*, quick: bool = False, select_asr: bool = False, asr_model: str 
             r.add("asr model", "fail", e.message, e.fix)
     else:
         r.add("asr model", "fail", f"{spec.name} is not downloaded.", f"Run `cutroom models pull {spec.name}`.")
+
+    from cutroom.perception.models import VISION_MODELS, ensure_file_model
+
+    for name, vspec in VISION_MODELS.items():
+        try:
+            ensure_file_model(name) if download else None
+            r.add(f"vision model {name}", "ok", f"{vspec.filename} ({vspec.licence}, checksum verified)")
+        except CutroomError as e:
+            r.add(f"vision model {name}", "warn", e.message, e.fix)
 
     can_smoke = ff is not None and is_downloaded(spec.name) and r.ok
     if quick:

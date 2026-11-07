@@ -21,6 +21,7 @@ def tc(t: float, ms: bool = True) -> str:
 
 
 QUIET_DB = 10.0   # speech this far below the speaker's median level is probably off-mic
+QUIET_MIN_WORDS = 3   # a single soft word is normal; a run of quiet words suggests another voice
 
 
 def _median_level(wf: WordsFile | None) -> float | None:
@@ -38,9 +39,11 @@ def _words_text(wf: WordsFile | None, a: float, b: float, median: float | None =
     parts, quiet = [], []
 
     def flush() -> None:
-        if quiet:
+        if len(quiet) >= QUIET_MIN_WORDS:
             parts.append("⟪quiet: " + " ".join(quiet) + "⟫")
-            quiet.clear()
+        else:
+            parts.extend(quiet)
+        quiet.clear()
 
     for w in wf.words:
         if not a <= (w.start + w.end) / 2 < b:

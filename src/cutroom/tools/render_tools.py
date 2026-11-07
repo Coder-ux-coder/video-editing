@@ -6,7 +6,8 @@ from typing import Annotated, Literal, Optional
 
 import typer
 
-from cutroom.cli_common import JobArg, JsonOpt, SourcesOpt, VersionOpt, emit, err, job_command, out, progress_bar
+from cutroom.cli_common import (JobArg, JsonOpt, SourcesOpt, VersionOpt, emit, err, job_command, out,
+                                progress_bar, silenced)
 from cutroom.job import Job
 from cutroom.render.engine import render as do_render
 from cutroom.style import load_style
@@ -80,7 +81,8 @@ def rough_cut(job_id: JobArg, sources: SourcesOpt = None,
     steps = []
     if fresh or store.head(job) is None:
         err.print("[bold]1/5 assemble[/]") if not as_json else None
-        assemble(job_id, sources, style=style or "default", **quiet)
+        with silenced(as_json):
+            assemble(job_id, sources, style=style or "default", **quiet)
         steps.append("assemble")
     for i, (name, fn, kw) in enumerate([("remove-silence", remove_silence, {}),
                                         ("remove-fillers", remove_fillers, {}),
@@ -88,7 +90,8 @@ def rough_cut(job_id: JobArg, sources: SourcesOpt = None,
                                          {"apply": True, "min_confidence": retake_confidence})], 2):
         if not as_json:
             err.print(f"[bold]{i}/5 {name}[/]")
-        fn(job_id, None, **kw, **quiet)
+        with silenced(as_json):
+            fn(job_id, None, **kw, **quiet)
         steps.append(name)
     rep = None
     if render_preview:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shlex
 from pathlib import Path
 from typing import Annotated
@@ -33,7 +34,10 @@ def _output_candidates(args: list[str]) -> list[str]:
 
 
 def _looks_like_path(a: str) -> bool:
-    return "/" in a or "\\" in a or bool(Path(a).suffix) and "=" not in a and ":" not in a[2:]
+    """'renders/x.mp4', 'out.wav', 'C:\\x.mp4' yes; '0.5', 'scale=320:-2', 'libx264' no."""
+    if "=" in a or re.fullmatch(r"[\d.:+-]+", a):
+        return False
+    return "/" in a or "\\" in a or bool(re.fullmatch(r"\.[A-Za-z][A-Za-z0-9]{0,4}", Path(a).suffix))
 
 
 @tool(ToolManifest("ffmpeg", "Run any FFmpeg command in the job folder (logged; sources protected).", "utility",
@@ -47,20 +51,16 @@ def ffmpeg(job_id: JobArg,
     job = Job.load(job_id)
     root = job.root.resolve()
     sources = {job.abspath(s.path).resolve() for s in job.manifest.sources}
-    resolved = []
-    for a in args:
-        p = Path(a)
-        resolved.append(str((root / p).resolve()) if not p.is_absolute() and ("/" in a or "." in p.name) and not a.startswith("-") else a)
-    for o in _output_candidates(resolved):
+    for o in _output_candidates(list(args)):
         if o in ("-", "pipe:1") or not _looks_like_path(o):
             continue
-        op = Path(o).resolve()
+        op = (root / o).resolve() if not Path(o).is_absolute() else Path(o).resolve()
         if op in sources:
             raise RefusedError(f"Refusing to write to source footage {op}.", fix="Write to renders/ or analysis/ instead.")
         if root not in op.parents and not op.is_file():
             raise RefusedError(f"Output {op} is outside the job folder.", fix=f"Write under {root}.")
     with job_command(job, "ffmpeg") as summary:
-        log = run_ffmpeg(resolved, desc="ffmpeg passthrough")
+        log = run_ffmpeg(list(args), desc="ffmpeg passthrough", cwd=root)
         summary["args"] = args
     job.log.section("ffmpeg passthrough")
     job.log.note(f"`ffmpeg {shlex.join(args)}`")
