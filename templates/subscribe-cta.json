@@ -1,0 +1,30 @@
+{
+ "anchors": [
+  "bottom-right",
+  "bottom-left"
+ ],
+ "size_hint": {
+  "w": 0.2,
+  "h": 0.08
+ },
+ "fact_params": [],
+ "hides_captions": false,
+ "persistent": false,
+ "at_cut": false,
+ "id": "subscribe-cta",
+ "component": "CTA",
+ "variants": [
+  "subscribe",
+  "follow",
+  "link"
+ ],
+ "default_duration_s": 3.5,
+ "description": "One clear call to action (generic button, no platform logos).",
+ "zone": "lower",
+ "params": {
+  "text": {
+   "type": "string",
+   "max_len": 30
+  }
+ }
+}

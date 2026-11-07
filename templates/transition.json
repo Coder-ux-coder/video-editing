@@ -1,0 +1,32 @@
+{
+ "anchors": [],
+ "size_hint": null,
+ "fact_params": [],
+ "hides_captions": false,
+ "persistent": false,
+ "at_cut": true,
+ "id": "transition",
+ "component": "Transition",
+ "variants": [
+  "dip",
+  "flash",
+  "whip",
+  "swipe",
+  "glitch"
+ ],
+ "default_duration_s": 0.4,
+ "description": "Overlay transition centred on a cut. Use sparingly: most cuts should be plain cuts.",
+ "zone": "full",
+ "params": {
+  "color": {
+   "type": "color"
+  },
+  "direction": {
+   "type": "enum",
+   "values": [
+    "left",
+    "right"
+   ]
+  }
+ }
+}

@@ -72,7 +72,7 @@ Speech rate: most natural presenters sit at roughly 130–170 words per minute; 
 | Remove hesitation fillers (um, uh, er, hmm) always; discourse markers (like, you know, I mean) only when isolated by commas and only if the style allows. Meaningful uses ("I like it", "you know him") are protected. | `fillers_always`, `fillers_contextual`, `remove_contextual_fillers: false` |
 | Stumbles and false starts: keep the clean attempt. Retakes: keep the **last complete** take unless it is clearly worse (shorter, mumbled). | `detect-retakes`; parallel structure ("how to A and how to B"), lists, spelled names and number corrections are protected |
 | No orphaned fragments: nothing under 0.4 s left between cuts unless it contains a whole word. | `min_clip: 0.40` |
-| A jump cut inside a continuous sentence must be disguised (punch-in of ~110–120 %, b-roll, graphic) unless jump cuts are the client's style. Between sentences, an undisguised jump cut is acceptable in YouTube style. | Punch-ins arrive in Phase 3; until then the review flags mid-sentence jump cuts |
+| A jump cut inside a continuous sentence must be disguised (punch-in of ~110–120 %, b-roll, graphic) unless jump cuts are the client's style. Between sentences, an undisguised jump cut is acceptable in YouTube style. | `punch-in --auto`: alternate 100 % / 112 % (`graphics.rules.punch_in_scale`) at every same-angle jump cut, crop centred on the face with the head kept in frame; joins on a camera change and clips < 0.8 s are left alone |
 | On multi-camera material, prefer cutting at a camera change; it hides the edit. | `analysis/<src>/visual_report.json` lists shots |
 | J-cuts and L-cuts (audio leads or trails the picture) for natural dialogue flow and transitions. | Supported by the timeline model; tools in a later phase |
 | Click-free joins: every audio join gets a short fade on both sides. | `join_fade: 0.008` s raised-cosine; render checks every join |
@@ -131,6 +131,14 @@ riding: dynamics stay natural. Every render measures the final file.
 6. **Facts on screen come from sources.** Every number or claim in a graphic carries a reference in
    the timeline (`graphics[].facts`): a transcript span or a document the client provided. Nothing is invented.
 7. **Restraint.** Fewer, better graphics beat many.
+8. **Contrast.** Text without its own panel gets one when the theme's text colour would fall under
+   WCAG 4.5:1 (accent/large text 3:1) against the footage behind it, at its darkest or brightest
+   look (`graphics/contrast.py`), the same idea as caption scrims. Theme tokens are checked too.
+9. **Captions stay readable.** Graphics sit above the caption band; only graphics that show the
+   words being said (kinetic text) or full-frame cards hide burned-in captions, and the caption
+   files always stay complete.
+10. **Transitions are rare.** Plain cuts by default; a dip, flash or whip marks a real change of
+    topic, place or time. Never a different transition at every cut.
 
 ## 8. Colour and look
 
@@ -228,3 +236,5 @@ that motivated them. Accepted changes update this file and the default style.
 | 2026-11-07 | Self-corrections keep the added words ("human tracks, fresh human tracks" → drop only "human tracks,") | Same interview |
 | 2026-11-07 | Caption phrasing rules (function-word breaks, names, numbers, pronouns, mid-phrase pauses) | Interview captions read badly with "fill up to N words": "…during / the last…", "White / Sands", "older than they / have" |
 | 2026-11-07 | Loudness by linear gain + oversampled limiter, 1 dB encoder headroom | Dynamic loudness normalisation plus AAC encoding gave −0.5 dBTP (over the −1 dBTP limit) on the interview |
+| 2026-11-07 | Backing panel for panel-less graphics over bright footage (§7.8) | Interview: a yellow counter over bright sky and sand was unreadable |
+| 2026-11-07 | Kinetic text goes in the band that clears the head, low by default (§7.9) | Interview: centred kinetic text sat just under the speaker's mouth |

@@ -17,7 +17,7 @@ from cutroom.joblog import JobLog, now_iso
 from cutroom.paths import jobs_dir, resolve_stored
 
 JOB_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{1,62}[a-z0-9]$")
-SUBDIRS = ["source", "proxy", "analysis", "versions", "renders", "review", "delivery", "logs"]
+SUBDIRS = ["source", "inputs", "proxy", "analysis", "versions", "renders", "review", "delivery", "logs"]
 
 Role = Literal["main", "broll", "music", "sfx", "voiceover", "image", "unknown"]
 
@@ -74,6 +74,11 @@ Client: {client}
 (Reference videos go in references/. Client style: styles/clients/<client>.style.yaml)
 
 ## Names, brands and terms to spell correctly
+-
+
+## On-screen facts
+(Graphics only show numbers and claims from the transcript or from documents you provide.
+Put fact sheets, reports and logos in inputs/. Speaker names and titles for lower thirds:)
 -
 
 ## Deadline

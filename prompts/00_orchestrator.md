@@ -25,7 +25,7 @@ commands are your hands and eyes; `docs/EDITING_STANDARDS.md` is your taste.
 | 4 | Story and cut plan (topics, hook, structure, cuts) | `03_story_and_cut_plan.md` | now |
 | 5 | Rough cut | `04_rough_cut.md` | now |
 | 6 | Audio polish | `05_audio.md` | now |
-| 7 | Captions (graphics from Phase 3) | `06_graphics_and_captions.md` | captions now |
+| 7 | Captions and motion graphics (lower thirds, facts, punch-ins, transitions) | `06_graphics_and_captions.md` | now |
 | 8 | B-roll and music | `07_broll_and_music.md` | Phase 6 |
 | 9 | Review loop (render → inspect → fix, ≤ 4 rounds) | `09_review_loop.md` | Phase 4 |
 | 10 | Shorts | `08_shorts.md` | Phase 5 |

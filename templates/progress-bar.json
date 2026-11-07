@@ -1,0 +1,22 @@
+{
+ "anchors": [],
+ "size_hint": null,
+ "fact_params": [],
+ "hides_captions": false,
+ "persistent": true,
+ "at_cut": false,
+ "id": "progress-bar",
+ "component": "ProgressBar",
+ "variants": [
+  "bottom",
+  "top"
+ ],
+ "default_duration_s": 0,
+ "description": "Progress through the video, optional chapter ticks. Spans the whole video.",
+ "zone": "edge",
+ "params": {
+  "chapters": {
+   "type": "list"
+  }
+ }
+}

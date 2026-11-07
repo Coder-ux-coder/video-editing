@@ -37,6 +37,8 @@ class Meta(BaseModel):
     client: str | None = None
     brief: str = "brief.md"
     style: str = "default"
+    client_style: str | None = Field(None, description="Client theme (styles/clients/<name>.style.yaml); "
+                                                       "defaults to the job's client.")
     fps: float = Field(description="Output frame rate (snapped standard rate, e.g. 29.97).")
     width: int
     height: int
@@ -159,17 +161,28 @@ class CutDecision(BaseModel):
 
 class Graphic(BaseModel):
     id: str
-    template: str
+    template: str = Field(description="Template id (templates/<id>.json).")
+    variant: str | None = None
     params: dict = Field(default_factory=dict)
     start: float
     end: float
     track: str = "G1"
     anchor: str = "auto"
+    placement: dict = Field(default_factory=dict, description="Resolved {anchor, x, y} (frame fractions).")
     animation: str | None = None
     z: int = 0
     transcript_span: tuple[float, float] | None = None
     facts: list[str] = Field(default_factory=list,
                              description="Where every number/claim shown comes from (transcript span or document).")
+    fact_check: dict = Field(default_factory=dict, description="Numbers verified against the references when added.")
+    attach: dict | None = Field(None, description="{source, t, offset}: the source moment the graphic is attached "
+                                                 "to. Edits move it with its content (start = that moment + offset).")
+    whole: bool = Field(False, description="Spans the whole video (progress bar, logo bug); follows its length.")
+    hides_captions: bool = Field(False, description="Burned-in captions are hidden while it is on screen.")
+    backing: bool | None = Field(None, description="Panel behind panel-less text: None = automatic (contrast of the "
+                                                   "theme's text colours against bg_luminance), or forced on/off.")
+    bg_luminance: list[float] | None = Field(None, description="Footage under the graphic: [25th, 75th] percentile WCAG "
+                                                               "relative luminance (darkest look, brightest look).")
     reason: str = ""
 
 
@@ -291,3 +304,15 @@ def validate_timeline(tl: Timeline) -> list[str]:
         if g.end <= g.start:
             problems.append(f"graphic {g.id}: end before start")
     return problems
+
+
+def timeline_warnings(tl: Timeline) -> list[str]:
+    """Things that are valid but need the editor's attention (shown by `validate` and the review)."""
+    out = []
+    for g in tl.graphics:
+        if g.attach and g.attach.get("detached"):
+            out.append(f"graphic {g.id} ({g.template}): the moment it was attached to "
+                       f"({g.attach['source']}@{g.attach['t']:.2f}s) is no longer in the edit")
+        if g.fact_check.get("unsupported_numbers"):
+            out.append(f"graphic {g.id}: numbers without a source: {g.fact_check['unsupported_numbers']}")
+    return out

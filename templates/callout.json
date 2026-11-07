@@ -1,0 +1,31 @@
+{
+ "anchors": [],
+ "size_hint": null,
+ "fact_params": [],
+ "hides_captions": false,
+ "persistent": false,
+ "at_cut": false,
+ "id": "callout",
+ "component": "Callout",
+ "variants": [
+  "box",
+  "spotlight",
+  "arrow"
+ ],
+ "default_duration_s": 3.0,
+ "description": "Point at a region of the frame (screen recordings, objects).",
+ "zone": "region",
+ "params": {
+  "rect": {
+   "type": "rect",
+   "required": true
+  },
+  "label": {
+   "type": "string",
+   "max_len": 40
+  },
+  "step": {
+   "type": "integer"
+  }
+ }
+}

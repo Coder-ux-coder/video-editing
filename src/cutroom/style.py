@@ -52,6 +52,11 @@ def load_style(name: str | None = None, client: str | None = None) -> dict[str, 
     return style
 
 
+def timeline_style(tl) -> dict[str, Any]:
+    """The style a timeline renders with: its named style plus its client theme."""
+    return load_style(tl.meta.style, client=tl.meta.client_style or tl.meta.client)
+
+
 def list_styles() -> list[str]:
     return sorted(p.name.removesuffix(".style.yaml") for p in styles_dir().glob("*.style.yaml"))
 

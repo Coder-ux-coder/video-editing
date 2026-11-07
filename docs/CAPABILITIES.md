@@ -3,7 +3,7 @@
 An honest map of what Cutroom can do today, what it can do partially, and what it cannot
 do yet, with the plan for each gap. Updated at the end of every phase.
 
-Last updated: Phase 2 (audio polish and captions).
+Last updated: Phase 3 (motion graphics).
 
 ## Can do (built and tested)
 
@@ -34,26 +34,34 @@ Last updated: Phase 2 (audio polish and captions).
 | Caption QA | `render` | Safe zone measured on drawn pixels; timing vs speech onsets; reading speed reported |
 | Range renders | `render --range A-B` | Review any section without a full render |
 | Plugins | `src/cutroom/tools/*.py` | Manifest + auto-registration + required tests |
+| Motion-graphics library (Remotion) | `templates`, `template-preview`, `graphic-add`, `graphic-remove`, `graphic-list` | 14 templates, 35 variants: lower thirds, title and chapter cards, callouts (box/spotlight/arrow), list reveals, kinetic text, counters, bar/line charts, comparisons, CTA, social handle, progress bar, logo bug, overlay transitions; all styled from design tokens |
+| Facts on screen verified | `graphic-add --fact` | Every number shown must be in the referenced transcript span or a client document (spoken = written forms); unsupported words reported; references stored in the timeline |
+| Graphics placement | `graphic-add` | Off the face (face track), above the caption band, inside the safe area, away from other graphics; ≤ 2 at once; reading-time minimum; automatic backing panel when the theme's text would lack WCAG contrast against the footage; verified on drawn pixels at render |
+| Graphics follow the edit | all cutting commands | Attached to source moments; cuts and moves carry them; a cut-away moment is flagged by `validate` |
+| Jump-cut disguise | `punch-in --auto` | Alternating 100/112 % framing at same-angle jump cuts, centred on the face, frame-exact; single-clip punch or slow push |
+| Overlay transitions | `transition` | dip, flash, whip, swipe, glitch, centred on a cut and moving with it |
+| Theme switch | `style --client-style` | Client themes (`styles/clients/*.style.yaml`) restyle every graphic and caption without touching the edit |
+| Graphics visual regression | tests | Golden still for every variant, compared with a tolerance |
 
 ## Partially
 
 | Capability | Gap | Plan |
 |---|---|---|
-| Flash shots where the source's own camera change falls mid-speech | Detected and reported, not fixed (2 in the 10-minute test) | L-cuts and punch-ins (Phases 3–4) |
+| Flash shots where the source's own camera change falls mid-speech | Detected and reported, not fixed (2 in the 10-minute test); punch-ins do not help (the angle really changes) | Review loop nudges the join or uses the other angle (Phase 4) |
 | Speaker identification | Off-mic voices hinted by level (⟪quiet⟫); interviewer questions identified by the agent from content | Diarization (speaker embeddings, non-gated free model) in Phase 5 |
 | Filler/stumble transcription | Whisper drops some; acoustic detection catches voiced sounds in pauses, not fillers fused into words | Measure on more real footage; optional second verbatim pass |
 | Footage-type detection | Heuristic; screen-recording detection untested on real screen captures | Test on real samples; add OCR text density |
 | Windows / macOS / NVIDIA GPU | Written to official docs, not yet run on real hardware | Your first `setup` + `doctor` run |
-| Jump-cut disguise | Mid-sentence jump cuts are left as plain cuts | Punch-ins (Phase 3) |
 | Reading speed | Captions follow speech, so fast talkers exceed 17 chars/s (reported, not hidden) | Optional condensed captions (agent-edited text) for very fast speech |
 | Caption render time | Remotion draws every frame: ~7 min for a 9-min 540p preview on 4 cores | Skip frames with no caption; render only changed frames (Phase 8 profiling) |
+| Graphics size estimate | Placement uses a size hint per template; long text can be wider than estimated (the render check then fails and says so) | Measure text with the theme fonts before placing |
+| Crossfades | Transitions are overlays over a cut; true video crossfades (overlapping clips) are not rendered | Add when a client style asks for them |
 | Audio stages | EQ is a gentle fixed curve, not matched to the voice; no hum removal, no music/speech separation | Measured EQ and hum notch (when a client needs it); speech/music segmentation with music (Phase 6) |
 
 ## Cannot do yet
 
 | Capability | Phase |
 |---|---|
-| Motion-graphics library (lower thirds, callouts, kinetic text, charts, transitions, CTAs) | 3 |
 | Automatic review loop with scorecard and autonomous fixes | 4 |
 | Shorts: moment selection, 9:16 reframing with face tracking, safe-zone captions | 5 |
 | B-roll, music, SFX, thumbnails | 6 |

@@ -141,6 +141,21 @@ Conclusions:
 | Voice chain planned from measurements, loudness in two passes | Denoise only when speech/noise < 35 dB (the interview: 41.9 dB → no denoise); compressor threshold 8 dB under the measured speech level; loudnorm two-pass, linear gain when the true-peak ceiling allows. Internal target −1.5 dBTP so AAC encoding stays under −1 dBTP. |
 | Range renders (`render --range A-B`) | Reviewing a style or a fix should not cost a full render. |
 
+### 4.6 Phase 3 decisions
+
+| Decision | Why / evidence |
+|---|---|
+| Graphics are data: template id + parameters + placement + references in the timeline, drawn by Remotion components | The agent adds a lower third with one command and no React; the same edit restyles from design tokens (`style --client-style`). 14 templates, 35 variants. |
+| One Remotion "Overlay" composition draws graphics and captions together | One frame sequence, one FFmpeg composite in the existing pass: graphics add no extra render pass and no extra encode. |
+| Numbers on screen are verified, words are reported | Every number a graphic shows (parameters, numbers inside text, chart values) must be found in its references; spoken and written forms compare equal ("ten thousand" = 10,000), rounding to the shown precision is allowed, inflation is not. Content words missing from the references are listed, not refused (paraphrase is legitimate; the review sees the list). In the acceptance run an invented "12,000" was refused. |
+| Placement computed from the face track and the caption band, then measured on drawn pixels | Python chooses the anchor covering the least of the head (face box grown to hair and chin) above the reserved caption band; after rendering, the share of each head covered and pixels outside the safe area are measured from the overlay frames (other graphics and the caption block masked out). |
+| Graphics are attached to source moments | A graphic stores the source time it appears at; every ripple/move re-maps it, so later cuts carry graphics with their content. If that moment is trimmed (a shortened pause), it moves to the next kept moment within 1.5 s; if its content is gone, `validate` and the review warn instead of letting it drift (a warning, so it never blocks saving an edit). |
+| Punch-ins with FFmpeg `zoompan` inside the existing run | One per-frame expression covers every clip of a run (no extra runs, no re-decoding), cropping from the full-resolution frame before the single scale. Frame-exactness verified by the luma-coded test with a punch-in. `--auto` alternates 100/112 % only at same-angle jump cuts (joins on a source camera change are left alone; clips < 0.8 s keep their framing). |
+| Transitions are overlays centred on the cut, not crossfades | Overlays keep the frame-exact, non-overlapping video pipeline; a true crossfade needs overlapping clips (later, if a client asks). |
+| Automatic backing panels, decided per theme | Panel-less text (big counter, kinetic text, minimal lower third, plain handle, text logo) gets a surface panel when the theme's text colour would fall under WCAG 4.5:1 (accent 3:1) against the footage under it. The footage is measured once when the graphic is added (darkest 25th / brightest 75th percentile luminance); the panel is decided at render, so switching to a dark-text theme re-decides it. Found in the acceptance run: a yellow counter over bright sky was unreadable. `style` also checks the theme's own tokens (text and accent on its surface) against WCAG. |
+| Fully opaque overlay frames are rewritten as RGBA | Chrome writes a fully opaque frame (a dip at its peak) as RGB; in an RGBA sequence that would switch FFmpeg's input pixel format mid-stream. |
+| Visual regression goldens for every template variant | 35 stills at 320x180 in `tests/golden/graphics/`, compared with a tolerance (mean difference ≤ 2/255, ≤ 1 % of pixels off by > 48), regenerated only on purpose and inspected. |
+
 ## 5. Decisions you made
 
 | Date | Question | Your answer | Consequence |
@@ -148,6 +163,7 @@ Conclusions:
 | 2026-11-07 | Remotion eligibility | You work as an individual (fewer than 3 people) | Remotion's free licence applies. Phase 3 uses Remotion. If the business grows past 3 employees, a paid Company License becomes necessary; the graphics layer is isolated so it could then be swapped for the free Playwright-based alternative (`ARCHITECTURE.md` §11). Re-check when Remotion 5.0 changes its licence. |
 | 2026-11-07 | Name | No change requested | "Cutroom" stays. |
 | 2026-11-07 | Caption renderer: Remotion or libass | Remotion | Captions drawn in Remotion (React), composited by FFmpeg. Slower renders than libass (measured above); maximum animation freedom; one graphics engine for captions and Phase 3 graphics. |
+| 2026-11-07 | How to proceed after Phase 2 | "No questions, execute every phase automatically" | Phases 3–8 run without stopping for a go-ahead. Choices that would have been questions are made on the evidence and recorded in this section; the product's own human gates (cut plan for new clients, final render before delivery, non-free installs, sensitive content) stay in the design. |
 
 ## 6. Risks and how they are handled
 

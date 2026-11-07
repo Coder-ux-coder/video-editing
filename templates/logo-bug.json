@@ -1,0 +1,38 @@
+{
+ "anchors": [
+  "top-right",
+  "top-left"
+ ],
+ "size_hint": {
+  "w": 0.12,
+  "h": 0.06
+ },
+ "fact_params": [],
+ "hides_captions": false,
+ "persistent": true,
+ "at_cut": false,
+ "id": "logo-bug",
+ "component": "LogoBug",
+ "variants": [
+  "text",
+  "image"
+ ],
+ "default_duration_s": 0,
+ "description": "Small persistent brand mark in a corner.",
+ "zone": "corner",
+ "params": {
+  "text": {
+   "type": "string",
+   "max_len": 24
+  },
+  "src": {
+   "type": "asset"
+  },
+  "opacity": {
+   "type": "number"
+  }
+ },
+ "backing_variants": [
+  "text"
+ ]
+}

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from cutroom.cli_common import emit, out
 from cutroom.job import Job
 from cutroom.perception.words import WordsFile
-from cutroom.style import load_style
+from cutroom.style import timeline_style
 from cutroom.timeline import store
 from cutroom.timeline.model import CutDecision, Timeline
 from cutroom.timeline.ops import Removal, check_cut_points, remove_ranges, words_for
@@ -60,7 +60,7 @@ def open_edit(job_id: str, version: str | None = None, *, need_words: bool = Tru
             s.words = f"analysis/{s.id}/words.json"
         else:
             words[s.id] = words_for(job, s.id)
-    style = load_style(tl.meta.style, client=tl.meta.client)
+    style = timeline_style(tl)
     return EditContext(job, tl, base, words, style, {})
 
 

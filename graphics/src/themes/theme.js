@@ -39,6 +39,15 @@ export const useMotion = (theme, duration, index = 0) => {
 	return {enter: f < 0 ? 0 : enter, exit, frame, fps, visible: Math.min(f < 0 ? 0 : enter, exit)};
 };
 
+/**
+ * Panel behind text that has none of its own, switched on by Python when the footage under the
+ * graphic is too bright for white/accent text to reach WCAG contrast (like caption scrims).
+ */
+export const backingStyle = (theme, on, round = theme.radius) => (on ? {
+	background: theme.colors.surface, borderRadius: round, boxShadow: theme.shadow,
+	padding: `${theme.space * 0.7}px ${theme.space * 1.2}px`,
+} : {});
+
 /** Absolute position from a placement box computed in Python (fractions of the frame). */
 export const placeStyle = (placement, theme) => {
 	const {anchor = 'bottom-left', x, y} = placement ?? {};
@@ -47,7 +56,7 @@ export const placeStyle = (placement, theme) => {
 	const st = {position: 'absolute'};
 	const [v, h] = anchor.split('-');
 	if (v === 'top') st.top = (y ?? theme.safe.top) * H;
-	else if (v === 'center') { st.top = '50%'; st.transform = 'translateY(-50%)'; }
+	else if (v === 'center') { st.top = (y ?? 0.5) * H; st.transform = 'translateY(-50%)'; }
 	else st.bottom = (1 - (y ?? theme.safe.bottom)) * H;
 	if (h === 'left') st.left = (x ?? theme.safe.left) * W;
 	else if (h === 'right') st.right = (1 - (x ?? theme.safe.right)) * W;

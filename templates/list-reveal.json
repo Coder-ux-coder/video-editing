@@ -1,0 +1,35 @@
+{
+ "anchors": [
+  "center-left",
+  "center-right"
+ ],
+ "size_hint": {
+  "w": 0.42,
+  "h": 0.45
+ },
+ "fact_params": [],
+ "hides_captions": false,
+ "persistent": false,
+ "at_cut": false,
+ "id": "list-reveal",
+ "component": "ListReveal",
+ "variants": [
+  "numbered",
+  "checklist",
+  "bullets"
+ ],
+ "default_duration_s": 6.0,
+ "description": "Steps, checklist or bullet points revealed one by one.",
+ "zone": "side",
+ "params": {
+  "title": {
+   "type": "string",
+   "max_len": 40
+  },
+  "items": {
+   "type": "list",
+   "required": true,
+   "max_items": 6
+  }
+ }
+}

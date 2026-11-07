@@ -1,0 +1,38 @@
+{
+ "anchors": [
+  "bottom-left",
+  "bottom-right"
+ ],
+ "size_hint": {
+  "w": 0.34,
+  "h": 0.12
+ },
+ "fact_params": [],
+ "hides_captions": false,
+ "persistent": false,
+ "at_cut": false,
+ "id": "lower-third",
+ "component": "LowerThird",
+ "variants": [
+  "bar",
+  "pill",
+  "minimal"
+ ],
+ "default_duration_s": 4.5,
+ "description": "Name and title of the person speaking.",
+ "zone": "lower",
+ "params": {
+  "name": {
+   "type": "string",
+   "required": true,
+   "max_len": 40
+  },
+  "title": {
+   "type": "string",
+   "max_len": 60
+  }
+ },
+ "backing_variants": [
+  "minimal"
+ ]
+}

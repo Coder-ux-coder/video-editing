@@ -398,8 +398,21 @@
      "type": "string"
     },
     "template": {
+     "description": "Template id (templates/<id>.json).",
      "title": "Template",
      "type": "string"
+    },
+    "variant": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Variant"
     },
     "params": {
      "additionalProperties": true,
@@ -423,6 +436,12 @@
      "default": "auto",
      "title": "Anchor",
      "type": "string"
+    },
+    "placement": {
+     "additionalProperties": true,
+     "description": "Resolved {anchor, x, y} (frame fractions).",
+     "title": "Placement",
+     "type": "object"
     },
     "animation": {
      "anyOf": [
@@ -470,6 +489,67 @@
      },
      "title": "Facts",
      "type": "array"
+    },
+    "fact_check": {
+     "additionalProperties": true,
+     "description": "Numbers verified against the references when added.",
+     "title": "Fact Check",
+     "type": "object"
+    },
+    "attach": {
+     "anyOf": [
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "{source, t, offset}: the source moment the graphic is attached to. Edits move it with its content (start = that moment + offset).",
+     "title": "Attach"
+    },
+    "whole": {
+     "default": false,
+     "description": "Spans the whole video (progress bar, logo bug); follows its length.",
+     "title": "Whole",
+     "type": "boolean"
+    },
+    "hides_captions": {
+     "default": false,
+     "description": "Burned-in captions are hidden while it is on screen.",
+     "title": "Hides Captions",
+     "type": "boolean"
+    },
+    "backing": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Panel behind panel-less text: None = automatic (contrast of the theme's text colours against bg_luminance), or forced on/off.",
+     "title": "Backing"
+    },
+    "bg_luminance": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "number"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Footage under the graphic: [25th, 75th] percentile WCAG relative luminance (darkest look, brightest look).",
+     "title": "Bg Luminance"
     },
     "reason": {
      "default": "",
@@ -642,6 +722,19 @@
      "default": "default",
      "title": "Style",
      "type": "string"
+    },
+    "client_style": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Client theme (styles/clients/<name>.style.yaml); defaults to the job's client.",
+     "title": "Client Style"
     },
     "fps": {
      "description": "Output frame rate (snapped standard rate, e.g. 29.97).",

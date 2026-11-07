@@ -1,6 +1,7 @@
 import React from 'react';
 import {Composition} from 'remotion';
 import {Captions} from './components/Captions.jsx';
+import {Overlay} from './components/Overlay.jsx';
 import {ensureFonts} from './fonts.js';
 
 ensureFonts();
@@ -21,6 +22,16 @@ export const Root = () => (
 			component={Captions}
 			defaultProps={{cues: [], style: {}, safe: {}}}
 			calculateMetadata={({props}) => fromProps({props})}
+			width={1920}
+			height={1080}
+			fps={30}
+			durationInFrames={90}
+		/>
+		<Composition
+			id="Overlay"
+			component={Overlay}
+			defaultProps={{theme: {}, graphics: [], captions: null}}
+			calculateMetadata={({props}) => ({...fromProps({props}), props: {...props, width: props.width ?? 1920, height: props.height ?? 1080}})}
 			width={1920}
 			height={1080}
 			fps={30}

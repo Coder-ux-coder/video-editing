@@ -6,7 +6,7 @@ graphics:
   theme:
     colors:
       primary: "#E11D48"
-      accent: "#22D3EE"
+      accent: "#0E7490"            # cyan 700: 3:1+ on the light surface
       surface: "rgba(255,255,255,0.94)"
       text: "#111827"
       textMuted: "rgba(17,24,39,0.72)"

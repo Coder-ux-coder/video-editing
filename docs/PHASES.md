@@ -147,3 +147,77 @@ sync ≤ 80 ms, no caption in unsafe zones.
 - EQ is a gentle fixed curve; no hum removal or music separation yet.
 
 **Next: Phase 3** (motion graphics library).
+
+## Phase 3: Motion graphics (2026-11-07)
+
+**Built**
+
+- Component library in Remotion (`graphics/src/components/graphics/`), all styled from design
+  tokens in the style file (`graphics.theme`: colours, fonts, weights, sizes, radius, spacing,
+  shadow, motion timing, safe area): lower thirds (bar, pill, minimal), title and chapter cards,
+  callouts (box, spotlight, arrow), list reveals (numbered, checklist, bullets), kinetic text (pop,
+  slide, marker), counters (big, inline), bar and line charts, comparisons (versus, pros/cons),
+  CTA, social handle, progress bar, logo bug, overlay transitions (dip, flash, whip, swipe,
+  glitch): 14 templates, 35 variants, each with a JSON spec in `templates/`.
+- One "Overlay" composition draws graphics and captions in a single pass, composited by FFmpeg in
+  the existing encode.
+- `templates`, `template-preview` (stills in any theme, over a frame), `graphic-add`,
+  `graphic-remove`, `graphic-list`, `punch-in` (`--auto` jump-cut disguise, single-clip punch or
+  push), `transition`, `style` (switch theme).
+- Facts on screen: every number a graphic shows is checked against its references (transcript
+  sentences/spans, the brief, documents in the job's new `inputs/` folder); spoken and written
+  numbers compare equal; unsourced numbers are refused; unsupported words are reported.
+- Placement off the face (face track) and above the caption band, max 2 at once, reading-time
+  minimum, kinetic text in the band that clears the head; backing panels decided by WCAG contrast
+  between the theme's colours and the footage; graphics attached to source moments so edits move
+  them (and `validate` flags a graphic whose moment was cut).
+- Render: per-clip punch-ins/pushes via `zoompan` in the existing runs (frame-exact); new checks
+  `graphics_off_faces` and `graphics_in_safe_area` measured on drawn pixels; opaque overlay frames
+  normalised to RGBA.
+- Playbook 06 part B (graphics), `templates/README.md`, editing standards §7.8–7.10.
+
+**Bugs found and fixed on the way**
+
+- Kinetic text words ran together (spacing tied to a layout token, not the font size).
+- Chrome writes a fully opaque frame as RGB inside an RGBA sequence (would switch FFmpeg's input
+  format mid-stream).
+- A yellow counter over bright sky was unreadable → automatic backing panels; first version
+  assumed light text, so a dark-text theme would have broken it → contrast decided per theme at render.
+- Centred kinetic text sat under the speaker's mouth → band placement.
+- The whole-video progress bar made the caption safe-zone check skip every frame (and pass
+  vacuously) → it is masked, and pixel checks that sample nothing now fail.
+- Marker highlight made the emphasised word unreadable in a dark-text theme.
+
+**Acceptance run** (the 10-minute NPS interview, from the captioned v069; `scripts/acceptance/phase3_graphics.sh`)
+
+| Step | Result |
+|---|---|
+| Lower third | "Dan Odess / Chief Scientist, National Park Service" when he first says his name; sources: sentences 1 and 4; placed bottom-left (face on the right), above the captions |
+| Number counter | "8,000+ years / further into the past" from "…pushing them back 10,000 years, 8,000 years further into the past…"; an invented 12,000 was **refused** |
+| List reveal | "Tracks found here: Human, Sloth, Mammoth, Wolf, Bear" as he names them (sentences 19–20) |
+| Kinetic text | "The evidence is tracks" (marker), low band, captions hidden for those words only (1 cue) |
+| Punch-ins | `punch-in --auto`: 63 of 134 clips at 112 % on same-angle jump cuts |
+| Transition, CTA, progress bar | Dip at the topic change at 4:05; subscribe CTA near the end; progress bar |
+| Full preview render (8:42, 540p, captions + 7 graphics + punch-ins) | 6 min 21 s on 4 cores (Phase 2 without graphics: 6 min 50 s); 15,658/15,658 frames; all 10 checks pass |
+| Graphics checks (drawn pixels) | 5 placed graphics measured: 0 % of the head covered, 0 frames outside the safe area |
+| Captions | 0 of 1,135 sampled frames outside the safe zone; sync 96.5 % within 80 ms (median 19 ms) |
+| Audio | −14.2 LUFS, −1.4 dBTP, 0 clicks at 133 joins |
+| Theme switch | `style --client-style demo-bold`: every graphic restyled (light panels, dark text, red/teal, Inter 900, faster motion); backing panels re-decided for dark text; range renders pass all checks |
+| Visual regression | 35 golden stills, all variants match |
+
+**Tested**: 166 automated tests (156 fast + 10 slow, all passing), including frame-exact rendering with a punch-in and a
+lower third, golden images for every variant, the theme switch measured on pixels, fact checking
+(spoken/written numbers, rounding vs inflation, documents), placement, graphics following edits.
+
+**Known limits**
+
+- Graphic sizes are estimated for placement (a size hint per template); the render measures the
+  real pixels and fails the check if text ran wider than estimated.
+- Transitions are overlays; true crossfades (overlapping clips) are not rendered.
+- Facts are checked for numbers; claims in words are reported, not proven (paraphrase is allowed).
+- 4 flash shots remain in this edit (made by Phase 2's sentence cuts next to the source's camera
+  changes); the Phase 4 review loop detects and fixes these.
+- Remotion still draws every frame; graphics add no measurable time, captions dominate.
+
+**Next: Phase 4** (review loop): `cutroom review` with automatic checks, frame sheets, report and
+scorecard, and the autonomous fix loop. Acceptance: seeded defects are detected and fixed.

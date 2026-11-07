@@ -26,12 +26,21 @@ Commands provided by modules in `src/cutroom/tools/` (see `registry.py`).
 | `rough-cut` | cutting | Standard first pass: assemble → silence → fillers → retakes → preview. | yes | `tests/test_cutting.py`, `tests/test_render.py` |
 | `captions` | graphics | Plan captions (phrases, timing, emphasis, placement) in a caption style. | yes | `tests/test_captions.py` |
 | `export-captions` | graphics | Write .srt and .vtt caption files for a timeline version. | no | `tests/test_captions.py` |
+| `graphic-add` | graphics | Add a motion graphic from a template, fact-checked and placed off faces. | yes | `tests/test_graphics.py` |
+| `graphic-list` | graphics | List the graphics in a timeline version with timing, placement and sources. | no | `tests/test_graphics.py` |
+| `graphic-move` | graphics | Retime or re-place a graphic (keeps its parameters and sources). | yes | `tests/test_graphics.py` |
+| `graphic-remove` | graphics | Remove a graphic by id. | yes | `tests/test_graphics.py` |
+| `punch-in` | graphics | Disguise jump cuts with alternating punch-ins (or set one clip's zoom). | yes | `tests/test_graphics.py` |
+| `template-preview` | graphics | Render still previews of graphics templates to look at before using them. | no | `tests/test_graphics.py` |
+| `templates` | graphics | List motion-graphics templates, their variants and parameters. | no | `tests/test_graphics.py` |
+| `transition` | graphics | Put an overlay transition (dip, flash, whip, swipe, glitch) on a cut. | yes | `tests/test_graphics.py` |
 | `render` | render | Render a timeline version (fast preview or full-quality final). | no | `tests/test_render.py` |
 | `assemble` | timeline | Create the first timeline: every main source, whole, in order. | yes | `tests/test_timeline.py` |
 | `checkout` | timeline | Set HEAD to any version (later edits branch from it). | no | `tests/test_timeline.py` |
 | `diff` | timeline | Human-readable change summary between two timeline versions. | no | `tests/test_timeline.py` |
 | `show` | timeline | Print a timeline as an outline, cut list, summary or JSON. | no | `tests/test_timeline.py` |
 | `snapshot` | timeline | Save the current version again as a named checkpoint. | yes | `tests/test_timeline.py` |
+| `style` | timeline | Switch the style or client theme of an edit (graphics and captions restyle on render). | yes | `tests/test_graphics.py` |
 | `undo` | timeline | Move HEAD back to the parent version (nothing is deleted). | no | `tests/test_timeline.py` |
 | `validate` | timeline | Validate a timeline (schema, structure, word-boundary cuts). | no | `tests/test_timeline.py` |
 | `versions` | timeline | List timeline versions with their changelog lines. | no | `tests/test_timeline.py` |
@@ -213,6 +222,66 @@ Parameters:
 - `--out`: Output JPEG (default review/frames/...).
 - `--json`: Print machine-readable JSON on stdout.
 
+## `cutroom graphic-add`
+
+Add a graphic. Numbers it shows must be found in its --fact references (transcript span or a
+document in the job), or it is refused. It is placed inside the safe area, above the caption
+band, on the side that covers the least of the face, holds at least the reading time, and
+is attached to the moment it appears, so later cuts move it with its content.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `TEMPLATE`: Template id (see `cutroom templates`).
+- `--at`: Timeline time it appears (s or m:ss).
+- `--sentence`: Appear when this sentence starts (numbering as in topics.task.md).
+- `--duration`: Seconds on screen (default: template default, at least the reading time).
+- `--variant`: Template variant.
+- `--param`, `-p`: key=value (repeat). Lists: a|b|c. Data: 2019:12,2020:30.
+- `--fact`, `-f`: Source of what it shows: sentences:12, S01@83.2-90.5, t:1:23-1:30, brief, doc:inputs/x.md (repeat).
+- `--anchor`: Force an anchor (e.g. bottom-right); default chooses off the face.
+- `--reason`: Why this graphic helps the viewer. (default: )
+- `--force`, `--no-force`: Allow more than the simultaneous-graphics limit.
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom graphic-list`
+
+Every graphic: id, template/variant, what it shows, when, where, and its fact references.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom graphic-move`
+
+Move a graphic in time or on screen. Facts are re-checked against its stored references and
+placement is recomputed (off the face, above the captions, away from other graphics).
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `GRAPHIC_ID`: Graphic id, e.g. g0003.
+- `--at`: New start (timeline s or m:ss).
+- `--duration`: New length (s).
+- `--anchor`: Force an anchor.
+- `--replace`: Choose a different anchor than now (after a face or safe-area failure).
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom graphic-remove`
+
+Remove one graphic (the earlier version keeps it; `cutroom undo` brings it back).
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `GRAPHIC_ID`: Graphic id, e.g. g0003.
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--json`: Print machine-readable JSON on stdout.
+
 ## `cutroom ingest`
 
 Probe, hash and register footage in a job. Originals are never modified.
@@ -320,6 +389,23 @@ Parameters:
 - `--force`, `--no-force`: Rebuild even if up to date.
 - `--json`: Print machine-readable JSON on stdout.
 
+## `cutroom punch-in`
+
+A jump cut on the same camera angle looks like a glitch; alternating the framing (100 % ↔
+112 %) at those cuts reads as a deliberate camera change. Joins that already fall on a camera
+change are left alone. The crop is centred on the face, keeping the head inside the frame.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--auto`: Alternate framing at every same-angle jump cut.
+- `--clip`: One clip id to reframe.
+- `--scale`: Zoom factor (default style graphics.rules.punch_in_scale).
+- `--push-to`: With --clip: slow push from --scale to this zoom over the clip.
+- `--clear`, `--no-clear`: Remove all reframes.
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--json`: Print machine-readable JSON on stdout.
+
 ## `cutroom remove-fillers`
 
 Remove filler words. Pure hesitations (um, uh, er, hmm) always; discourse markers only when
@@ -422,6 +508,43 @@ Parameters:
 - `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
 - `--json`: Print machine-readable JSON on stdout.
 
+## `cutroom style`
+
+Every graphic and caption takes its colours, fonts, sizes and motion from the style's
+design tokens, so switching the theme restyles the whole edit without touching it.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--name`: Style (styles/<name>.style.yaml).
+- `--client-style`: Client theme (styles/clients/<name>.style.yaml); 'none' to clear.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom template-preview`
+
+Draw each template variant at mid-hold with the theme of a style (and client), so the look
+can be checked by eye before graphics go into an edit.
+
+Parameters:
+
+- `TEMPLATE` (optional): Template id (default: all).
+- `--variant`: One variant (default: all).
+- `--param`, `-p`: key=value (default: demo values).
+- `--style`: Style file name. (default: default)
+- `--client`: Client style (styles/clients/<name>.style.yaml).
+- `--background`: Image to draw over (e.g. a frame of the footage).
+- `--out`: Folder for the PNGs. (default: template_previews)
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom templates`
+
+Every template the agent can add with `graphic-add`, with variants, parameters (* = required),
+which parameters are facts that must be sourced, and where it sits on screen.
+
+Parameters:
+
+- `--json`: Print machine-readable JSON on stdout.
+
 ## `cutroom topics`
 
 Topic segmentation needs judgement, so the agent does it: this writes the task file with
@@ -452,6 +575,22 @@ Parameters:
 - `--force`, `--no-force`: Re-transcribe even if a transcript exists.
 - `--json`: Print machine-readable JSON on stdout.
 
+## `cutroom transition`
+
+Most cuts should stay plain cuts; use a transition to mark a topic change or a jump in time.
+It is drawn over the cut and moves with it if the edit changes.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--at`: Timeline time; the nearest cut is used.
+- `--join`: Cut number (1 = between the first and second clip).
+- `--variant`: dip, flash, whip, swipe or glitch. (default: dip)
+- `--duration`: Seconds, centred on the cut.
+- `--reason`: Why (topic change, time jump…). (default: )
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--json`: Print machine-readable JSON on stdout.
+
 ## `cutroom undo`
 
 Undo the last edit: HEAD moves to the parent version. The undone version stays on disk.
@@ -464,6 +603,7 @@ Parameters:
 ## `cutroom validate`
 
 Check a timeline: schema, overlaps, source ranges, and that no cut lands inside a word.
+Warnings (graphics whose moment was cut, unsourced numbers) are listed but do not fail.
 
 Parameters:
 

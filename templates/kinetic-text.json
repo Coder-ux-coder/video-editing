@@ -1,0 +1,33 @@
+{
+ "anchors": [],
+ "size_hint": null,
+ "fact_params": [],
+ "hides_captions": true,
+ "persistent": false,
+ "at_cut": false,
+ "id": "kinetic-text",
+ "component": "KineticText",
+ "variants": [
+  "pop",
+  "slide",
+  "marker"
+ ],
+ "default_duration_s": 2.5,
+ "description": "A key phrase or punchline, word by word.",
+ "zone": "band",
+ "params": {
+  "text": {
+   "type": "string",
+   "required": true,
+   "max_len": 60
+  },
+  "emphasis": {
+   "type": "list"
+  }
+ },
+ "backing_variants": [
+  "pop",
+  "slide",
+  "marker"
+ ]
+}

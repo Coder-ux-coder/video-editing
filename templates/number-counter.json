@@ -1,0 +1,53 @@
+{
+ "anchors": [
+  "center-left",
+  "center-right"
+ ],
+ "size_hint": {
+  "w": 0.3,
+  "h": 0.22
+ },
+ "fact_params": [
+  "to",
+  "from"
+ ],
+ "hides_captions": false,
+ "persistent": false,
+ "at_cut": false,
+ "id": "number-counter",
+ "component": "Counter",
+ "variants": [
+  "big",
+  "inline"
+ ],
+ "default_duration_s": 3.0,
+ "description": "Animated statistic. The number must come from the transcript or a provided source.",
+ "zone": "side",
+ "params": {
+  "to": {
+   "type": "number",
+   "required": true
+  },
+  "from": {
+   "type": "number"
+  },
+  "prefix": {
+   "type": "string",
+   "max_len": 4
+  },
+  "suffix": {
+   "type": "string",
+   "max_len": 12
+  },
+  "decimals": {
+   "type": "integer"
+  },
+  "label": {
+   "type": "string",
+   "max_len": 40
+  }
+ },
+ "backing_variants": [
+  "big"
+ ]
+}

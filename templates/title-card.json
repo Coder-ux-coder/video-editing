@@ -1,0 +1,28 @@
+{
+ "anchors": [],
+ "size_hint": null,
+ "fact_params": [],
+ "hides_captions": true,
+ "persistent": false,
+ "at_cut": false,
+ "id": "title-card",
+ "component": "TitleCard",
+ "variants": [
+  "center",
+  "panel"
+ ],
+ "default_duration_s": 3.0,
+ "description": "Full-frame title moment (intro, section).",
+ "zone": "full",
+ "params": {
+  "title": {
+   "type": "string",
+   "required": true,
+   "max_len": 60
+  },
+  "subtitle": {
+   "type": "string",
+   "max_len": 90
+  }
+ }
+}

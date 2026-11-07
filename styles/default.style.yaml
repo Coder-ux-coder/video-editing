@@ -173,3 +173,5 @@ graphics:
     max_simultaneous: 2         # never more than 2 animated graphics at once on a talking head
     caption_band_clearance: 0.02
     punch_in_scale: 1.12        # jump-cut disguise: alternate 100% / 112%
+    # Panel-less text gets a backing panel when the theme's text colour would fall under WCAG 4.5:1
+    # (accent 3:1, large text) against the footage measured under it (graphics/contrast.py).

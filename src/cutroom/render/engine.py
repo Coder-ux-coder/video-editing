@@ -42,6 +42,7 @@ class Segment:
     n_in: int        # first output-rate frame (source time = n / fps)
     n_out: int       # exclusive
     out_frame: int   # position on the output timeline (frames)
+    zoom: tuple | None = None   # (scale0, x0, y0, scale1, x1, y1): punch-in/push, crop centre in frame fractions
 
     @property
     def frames(self) -> int:
@@ -59,9 +60,19 @@ def plan_segments(tl: Timeline) -> list[Segment]:
         n_in, n_out = int(round(c.src_in * fps)), int(round(c.src_out * fps))
         if n_out <= n_in:
             continue
-        segs.append(Segment(c.id, c.source, n_in, n_out, pos))
+        segs.append(Segment(c.id, c.source, n_in, n_out, pos, _zoom(c)))
         pos += n_out - n_in
     return segs
+
+
+def _zoom(c) -> tuple | None:
+    """A clip's reframe as a constant punch-in or a linear push from its first to its last keyframe."""
+    if not c.reframe:
+        return None
+    k0, k1 = c.reframe[0], c.reframe[-1]
+    if max(k0.scale, k1.scale) <= 1.0001:
+        return None
+    return (k0.scale, k0.x, k0.y, k1.scale, k1.x, k1.y)
 
 
 def clip_segments(segs: list[Segment], f0: int, f1: int) -> list[Segment]:
@@ -72,7 +83,7 @@ def clip_segments(segs: list[Segment], f0: int, f1: int) -> list[Segment]:
         if b <= a:
             continue
         n_in = s.n_in + (a - s.out_frame)
-        out.append(Segment(s.clip_id, s.source, n_in, n_in + (b - a), a - f0))
+        out.append(Segment(s.clip_id, s.source, n_in, n_in + (b - a), a - f0, s.zoom))
     return out
 
 
@@ -241,9 +252,17 @@ def render_run(job: Job, tl: Timeline, run: list[Segment], out_path: Path, *, mo
     inp = job.abspath(src.proxy) if use_proxy else job.source_path(src)
     w, h = output_size(tl, mode)
     sel = "+".join(f"between(n\\,{s.n_in}\\,{s.n_out - 1})" for s in run)
-    chain = [f"fps={fps_rational(fps)}", f"select='{sel}'", f"setpts=N/({fps_rational(fps)})/TB",
-             f"scale={w}:{h}:force_original_aspect_ratio=decrease:flags=bicubic",
-             f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2", "setsar=1"]
+    chain = [f"fps={fps_rational(fps)}", f"select='{sel}'", f"setpts=N/({fps_rational(fps)})/TB"]
+    zoom = zoom_filter(run, fps, w, h)
+    sw, sh = src.media.primary_video.display_width, src.media.primary_video.display_height
+    same_aspect = abs(sw / sh - w / h) < 0.01
+    if zoom and same_aspect:
+        chain += [zoom, "setsar=1"]          # crop from the full-resolution frame, scale once
+    else:
+        chain += [f"scale={w}:{h}:force_original_aspect_ratio=decrease:flags=bicubic",
+                  f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2", "setsar=1"]
+        if zoom:
+            chain += [zoom, "setsar=1"]
     graph = "[0:v]" + ",".join(chain)
     chain = []
     extra_inputs: list[str] = []
@@ -267,6 +286,31 @@ def render_run(job: Job, tl: Timeline, run: list[Segment], out_path: Path, *, mo
                duration=frames / fps, on_progress=on_progress)
 
 
+def zoom_filter(run: list[Segment], fps: float, w: int, h: int) -> str | None:
+    """One zoompan filter for a whole run: each clip's punch-in (or push) as a per-frame
+    expression of the run-local frame number ``in``; clips without one stay at 100 %."""
+    if not any(s.zoom for s in run):
+        return None
+    z, cx, cy = ["1"], ["0.5"], ["0.5"]
+    pos = 0
+    for s in run:
+        if s.zoom:
+            s0, x0, y0, s1, x1, y1 = s.zoom
+            a, b = pos, pos + s.frames - 1
+            span = max(1, b - a)
+            on = f"between(in\\,{a}\\,{b})"
+            lerp = lambda v0, v1, base: (f"{on}*({v0 - base:.5f})" if abs(v1 - v0) < 1e-6 else
+                                         f"{on}*({v0 - base:.5f}+({v1 - v0:.5f})*(in-{a})/{span})")
+            z.append(lerp(s0, s1, 1.0))
+            cx.append(lerp(x0, x1, 0.5))
+            cy.append(lerp(y0, y1, 0.5))
+        pos += s.frames
+    ze, xe, ye = "+".join(z), "+".join(cx), "+".join(cy)
+    return (f"zoompan=z='{ze}':x='max(0\\,min(iw-iw/zoom\\,iw*({xe})-iw/zoom/2))'"
+            f":y='max(0\\,min(ih-ih/zoom\\,ih*({ye})-ih/zoom/2))':d=1:s={w}x{h}:fps={fps_rational(fps)},"
+            f"setpts=N/({fps_rational(fps)})/TB")
+
+
 def output_shots(job: Job, tl: Timeline) -> list[dict]:
     """Shots as the viewer sees them: every join is a cut, and so is every source camera change
     inside a clip. Very short shots (< 0.4 s) look like flashes: a classic choppy-edit tell."""
@@ -282,22 +326,110 @@ def output_shots(job: Job, tl: Timeline) -> list[dict]:
     return [{"start": a, "end": b, "duration": round(b - a, 3)} for a, b in zip(edges, edges[1:]) if b > a]
 
 
-def caption_overlay(job: Job, tl: Timeline, w: int, h: int, total_frames: int, scratch: Path,
-                    concurrency: int | None, on_progress=None) -> tuple[str, Path, dict]:
-    """Render the timeline's captions with Remotion; returns (FFmpeg pattern, frames dir, props)."""
-    from cutroom.captions.plan import to_remotion_props
+def overlay_frames(job: Job, tl: Timeline, w: int, h: int, total_frames: int, scratch: Path,
+                   concurrency: int | None, *, captions: bool, span: tuple[float, float] | None,
+                   on_progress=None) -> tuple[str, Path, dict]:
+    """Render graphics and captions with Remotion in one pass; returns (FFmpeg pattern, frames dir, props)."""
+    from cutroom.graphics.overlay import overlay_props
     from cutroom.graphics.remotion import frame_pattern, render_overlay
-    from cutroom.style import load_style
+    from cutroom.style import timeline_style
 
-    style_doc = load_style(tl.meta.style, client=tl.meta.client)
-    props = to_remotion_props(tl.captions, style_doc, width=w, height=h, fps=tl.meta.fps,
-                              duration=total_frames / tl.meta.fps)
-    props["durationInFrames"] = max(props["durationInFrames"], total_frames)
-    out_dir = scratch / "captions"
-    render_overlay(props, out_dir, composition="Captions", concurrency=concurrency, on_progress=on_progress,
+    style_doc = timeline_style(tl)
+    t0, t1 = span if span else (0.0, None)
+    props = overlay_props(tl, style_doc, width=w, height=h, fps=tl.meta.fps, total_frames=total_frames,
+                          job_root=job.root, captions=captions, t0=t0, t1=t1)
+    out_dir = scratch / "overlay"
+    render_overlay(props, out_dir, composition="Overlay", concurrency=concurrency, on_progress=on_progress,
                    scratch=scratch)
     pattern, _ = frame_pattern(out_dir)
     return pattern, out_dir, props
+
+
+def faces_at(job: Job, tl: Timeline, t0: float = 0.0):
+    """faces(t) → face boxes at output time t (nearest 1 s analysis sample, same clip)."""
+    data = {}
+    for s in tl.sources:
+        p = job.root / "analysis" / s.id / "faces.json"
+        if p.is_file():
+            data[s.id] = json.loads(p.read_text(encoding="utf-8"))
+    clips = tl.track_clips()
+
+    def faces(t: float) -> list[dict]:
+        t += t0
+        for c in clips:
+            if c.start <= t < c.end and c.source in data:
+                st = c.to_source(t)
+                near = [smp for smp in data[c.source] if abs(smp["t"] - st) <= 0.6 and c.src_in - 0.3 <= smp["t"] <= c.src_out + 0.3]
+                return min(near, key=lambda smp: abs(smp["t"] - st))["faces"] if near else []
+        return []
+    return faces
+
+
+def check_graphics(frames_dir: Path, props: dict, faces, *, every: int = 6) -> dict:
+    """Measure drawn graphics: share of each head covered and pixels outside the graphics safe
+    area, on frames where a placed graphic (lower third, counter, list…) is fully in. Caption
+    pixels are excluded by masking the caption band."""
+    import cv2
+
+    from cutroom.graphics.placement import head_box
+
+    w, h = props["width"], props["height"]
+    safe = props["theme"].get("safe", {"left": 0.06, "right": 0.94, "top": 0.07, "bottom": 0.93})
+    pad = 0.005
+    cap = props.get("captions")
+    width = len(next(iter(sorted(frames_dir.glob("*.png")))).stem)
+    results = {}
+    for g in props["graphics"]:
+        anchor = (g.get("placement") or {}).get("anchor", "center-center")
+        if anchor == "center-center":
+            continue   # full-frame by design (title cards, transitions, callouts)
+        f_in, f_out = max(0, g["from"] + 14), min(props["durationInFrames"], g["to"] - 10)
+        if f_out <= f_in:
+            continue   # only its entrance or exit is in this (range) render
+        worst, outside, checked = 0.0, 0, 0
+        for f in range(f_in, f_out, every):
+            img = cv2.imread(str(frames_dir / f"{f:0{width}d}.png"), cv2.IMREAD_UNCHANGED)
+            if img is None or img.shape[2] < 4:
+                continue
+            alpha = img[:, :, 3] > 64
+            others = [o for o in props["graphics"] if o is not g and o["from"] <= f < o["to"]]
+            if any((o.get("placement") or {}).get("anchor", "center-center") == "center-center"
+                   and o["component"] != "ProgressBar" for o in others):
+                continue        # a full-frame graphic is on screen too: pixels cannot be told apart
+            for o in others:    # keep only this graphic's pixels
+                if o["component"] == "ProgressBar":
+                    strip = int(0.03 * h)
+                    if o.get("variant") == "top":
+                        alpha[:strip, :] = False
+                    else:
+                        alpha[h - strip:, :] = False
+                elif (o.get("placement") or {}).get("box"):
+                    x0, y0, x1, y1 = o["placement"]["box"]
+                    alpha[max(0, int((y0 - 0.02) * h)):int((y1 + 0.02) * h), max(0, int((x0 - 0.02) * w)):int((x1 + 0.02) * w)] = False
+            if cap:   # mask the caption block on screen at this frame
+                st = cap["style"]
+                for c in cap["cues"]:
+                    if c["from"] <= f < c["to"]:
+                        block = (len(c["lines"]) * st["fontSize"] * st.get("lineHeight", 1.18)
+                                 + 2 * st.get("box", {}).get("padY", 0)) / h + 0.02
+                        if c["placement"] == "top":
+                            y0, y1 = cap["safe"]["top"] - 0.02, cap["safe"]["top"] + block + 0.005
+                        else:
+                            y0, y1 = cap["safe"]["bottom"] - block - 0.005, cap["safe"]["bottom"] + 0.02
+                        alpha[max(0, int(y0 * h)):int(y1 * h), :] = False
+            checked += 1
+            ys, xs = np.nonzero(alpha)
+            if len(xs) and (xs.min() < (safe["left"] - pad) * w or xs.max() > (safe["right"] + pad) * w
+                            or ys.min() < (safe["top"] - pad) * h or ys.max() > (safe["bottom"] + pad) * h):
+                outside += 1
+            for fb in faces(f / props["fps"]):
+                x0, y0, x1, y1 = head_box(fb)
+                X0, Y0, X1, Y1 = max(0, int(x0 * w)), max(0, int(y0 * h)), min(w, int(x1 * w)), min(h, int(y1 * h))
+                if X1 > X0 and Y1 > Y0:
+                    worst = max(worst, float(alpha[Y0:Y1, X0:X1].mean()))
+        results[g["id"]] = {"frames_checked": checked, "head_covered": round(worst, 3),
+                            "frames_outside_safe_area": outside}
+    return results
 
 
 def check_caption_safe_zone(frames_dir: Path, props: dict, *, every: int = 15, tolerance: float = 0.01) -> dict:
@@ -310,14 +442,20 @@ def check_caption_safe_zone(frames_dir: Path, props: dict, *, every: int = 15, t
     lo_x, hi_x = (safe["left"] - tolerance) * w, (safe["right"] + tolerance) * w
     lo_y, hi_y = (safe["top"] - tolerance) * h, (safe["bottom"] + tolerance) * h
     width = len(next(iter(sorted(frames_dir.glob("*.png")))).stem)
-    sample = sorted({c["from"] + (c["to"] - c["from"]) // 2 for c in props["cues"]} |
-                    set(range(0, props["durationInFrames"], every)))
+    busy = props.get("busy_frames", [])
+    sample = sorted(f for f in ({c["from"] + (c["to"] - c["from"]) // 2 for c in props["cues"]} |
+                                set(range(0, props["durationInFrames"], every)))
+                    if not any(a <= f < b for a, b in busy))
     checked, outside = 0, []
     for f in sample:
         img = cv2.imread(str(frames_dir / f"{f:0{width}d}.png"), cv2.IMREAD_UNCHANGED)
         if img is None or img.shape[2] < 4:
             continue
-        ys, xs = np.nonzero(img[:, :, 3] > 64)
+        alpha = img[:, :, 3] > 64
+        for strip in props.get("mask_strips", []):
+            k = int(0.03 * h)
+            alpha[(slice(0, k) if strip == "top" else slice(h - k, h)), :] = False
+        ys, xs = np.nonzero(alpha)
         if not len(xs):
             continue
         checked += 1
@@ -413,7 +551,9 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
     extra: dict = {}
     w, h = output_size(tl, mode)
     use_caps = bool(captions and tl.captions and tl.captions.cues and tl.captions.burn_in)
-    cap_share = 0.45 if use_caps else 0.0  # share of the progress bar for the caption overlay
+    rng = (a, b) if span is not None else (0.0, tl.duration)
+    use_gfx = any(g.end > rng[0] and g.start < rng[1] for g in tl.graphics)
+    cap_share = 0.45 if (use_caps or use_gfx) else 0.0  # share of the progress bar for the overlay
     try:
         wav = scratch / "audio.wav"
         joins = render_audio(job, tl, segs, wav, join_fade=join_fade)
@@ -424,15 +564,24 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
             mux_wav = scratch / "audio_processed.wav"
             extra["audio_chain"] = apply_chain(wav, mux_wav, tl.audio.voice_chain, duration=total_frames / fps)
         overlay = None
-        if use_caps:
-            overlay, cap_dir, props = caption_overlay(
-                job, tl, w, h, total_frames, scratch, graphics_concurrency,
+        if use_caps or use_gfx:
+            from cutroom.graphics.overlay import caption_check_props
+
+            overlay, ov_dir, props = overlay_frames(
+                job, tl, w, h, total_frames, scratch, graphics_concurrency, captions=use_caps,
+                span=(a, b) if span is not None else None,
                 on_progress=(lambda f: on_progress(f * cap_share)) if on_progress else None)
-            extra["captions"] = {**tl.captions.stats, "style": tl.captions.style, "cues": len(tl.captions.cues),
-                                 "safe_zone": check_caption_safe_zone(cap_dir, props),
-                                 # Timing is a property of the words: measure on the unprocessed edit
-                                 # audio (compression changes onset thresholds, not timing).
-                                 "sync": check_caption_sync(wav, props, joins_s=[j / SR for j in joins])}
+            cprops = caption_check_props(props)
+            if cprops:
+                extra["captions"] = {**tl.captions.stats, "style": tl.captions.style, "cues": len(tl.captions.cues),
+                                     "hidden_by_graphics": props["captions_hidden_by_graphics"],
+                                     "safe_zone": check_caption_safe_zone(ov_dir, cprops),
+                                     # Timing is a property of the words: measure on the unprocessed edit
+                                     # audio (compression changes onset thresholds, not timing).
+                                     "sync": check_caption_sync(wav, cprops, joins_s=[j / SR for j in joins])}
+            if props["graphics"]:
+                extra["graphics"] = {"count": len(props["graphics"]),
+                                     "measured": check_graphics(ov_dir, props, faces_at(job, tl, rng[0]))}
         runs = group_runs(segs)
         parts = []
         done = 0
@@ -499,9 +648,16 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
         report["checks"]["loudness_on_target"] = (loud.integrated_lufs is not None
                                                   and abs(loud.integrated_lufs - target) <= 1.0)
         report["checks"]["true_peak_ok"] = loud.true_peak_dbtp is not None and loud.true_peak_dbtp <= tp
+    if "graphics" in extra:
+        m = extra["graphics"]["measured"]
+        # A check that measured nothing must not pass: every placed graphic needs sampled frames.
+        report["checks"]["graphics_off_faces"] = all(v["head_covered"] <= 0.02 and v["frames_checked"] > 0
+                                                     for v in m.values())
+        report["checks"]["graphics_in_safe_area"] = all(v["frames_outside_safe_area"] == 0 for v in m.values())
     if "captions" in extra:
         c = extra["captions"]
-        report["checks"]["captions_in_safe_zone"] = c["safe_zone"]["outside_count"] == 0
+        report["checks"]["captions_in_safe_zone"] = (c["safe_zone"]["outside_count"] == 0
+                                                     and c["safe_zone"]["frames_with_captions_checked"] > 0)
         if c["sync"].get("measured"):
             report["checks"]["caption_sync_80ms"] = c["sync"]["within_80ms"] >= 0.95
     atomic_write_text(out_path.with_suffix(".json"), json.dumps(report, indent=1) + "\n")

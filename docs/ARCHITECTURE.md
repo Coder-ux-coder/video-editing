@@ -64,9 +64,9 @@ Status legend used below: **[built]** exists and is tested; **[Pn]** is planned 
 | Path | Contents |
 |---|---|
 | `src/cutroom/` | Python package: `cli.py`, `ingest/`, `perception/`, `timeline/`, `tools/`, `render/`, `review/`, `export/`, `system/` |
-| `graphics/` | Remotion package (React): captions [built], motion graphics [P3]; `render.mjs` renders a composition to transparent PNGs |
-| `styles/` | `default.style.yaml` (editing parameters, caption rules and 4 caption styles [built]; graphics tokens [P3]) and `clients/<client>.style.yaml` |
-| `templates/` | JSON specs for reusable motion-graphics templates [P3] |
+| `graphics/` | Remotion package (React): captions and the motion-graphics component library [built]; `render.mjs` renders a composition to transparent PNGs (or listed stills) |
+| `styles/` | `default.style.yaml` (editing parameters, caption rules and 4 caption styles, graphics design tokens and rules [built]) and `clients/<client>.style.yaml` (e.g. `demo-bold`) |
+| `templates/` | JSON specs for the motion-graphics templates (parameters, facts, placement zones) [built] |
 | `assets/` | Fonts, SFX, LUTs, music: each with recorded licence and source. `samples/` holds the synthetic test clip. |
 | `prompts/` | The agent playbook: `00`–`04` [built]; `05`–`10` [P2–P7] |
 | `docs/` | Charter, this file, standards, schema, generated tool reference, licences, capabilities |
@@ -177,7 +177,7 @@ of the edit), `versions`, `undo`, `checkout`, `snapshot`. Field reference: `docs
   refuses to write to sources or outside the job), and custom graphics compositions when no
   template fits [P3] (added to the library with a spec and test).
 
-### 4.5 Render layer [built for cuts; graphics P3]
+### 4.5 Render layer [built]
 
 - **Video**: clips are grouped into *runs* (consecutive clips of one source in increasing
   source order). Each run is one FFmpeg pass: conform to the output frame rate, then keep exact
@@ -193,15 +193,29 @@ of the edit), `versions`, `undo`, `checkout`, `snapshot`. Field reference: `docs
   no clicks at any join (linear-prediction error test), no edit lists, a list of *flash shots*
   (< 0.4 s); with a voice chain, loudness within ±1 LU of target and true peak under the ceiling
   (measured on the output file); with captions, every drawn caption pixel inside the safe zone
-  (measured on the overlay frames) and caption appearance within 80 ms of speech onsets.
-- **Captions and graphics** [captions built]: Python plans what to draw (props JSON); Remotion
+  (measured on the overlay frames) and caption appearance within 80 ms of speech onsets; with
+  graphics, no head covered (≤ 2 %) and every graphic pixel inside the graphics safe area.
+- **Captions and graphics** [built]: Python plans what to draw (props JSON); Remotion
   (React, `graphics/`) draws transparent PNG frames in headless Chrome (`graphics/render.mjs`,
   bundle cached by source hash); FFmpeg overlays them inside each video run, so no extra encode.
-  FFmpeg stays the single master compositor; the graphics engine only draws.
+  FFmpeg stays the single master compositor; the graphics engine only draws. One "Overlay"
+  composition draws every graphic (sorted by z) with captions on top; graphics that hide
+  captions (kinetic text, title cards) trim the cues they overlap. Fully opaque frames are
+  rewritten as RGBA so FFmpeg's input format never changes mid-stream.
+- **Graphics** [built]: a graphic is `{template, variant, params, start, end, placement,
+  facts, fact_check, attach, backing}` in the timeline. `graphic-add` validates parameters
+  against the template spec, verifies every number against its references (transcript span or
+  client document), chooses the anchor off the face and above the caption band, enforces the
+  reading time and the 2-at-once rule, measures footage luminance for backing panels, and
+  attaches the graphic to its source moment (ripple/move re-map it). After rendering, head
+  coverage and safe-area containment are measured on the drawn pixels.
+- **Reframing** [built]: per-clip punch-ins and pushes (`clips[].reframe`) are one FFmpeg
+  `zoompan` per run with per-frame expressions, cropped from the full-resolution frame before
+  the single scale (same aspect) or after it (letterboxed sources).
 - **Audio polish** [built]: the voice chain stored in the timeline (`audio.voice_chain`, planned
   by `cutroom audio`) runs on the assembled edit audio before muxing: chain → linear gain to the
   loudness target → 4× oversampled limiter → measured; the final file is measured again.
-- **Range renders** [built]: `render --range A-B` renders any slice (captions re-timed), for review.
+- **Range renders** [built]: `render --range A-B` renders any slice (captions and graphics re-timed), for review.
 - **Encoders**: previews use a working hardware encoder if `doctor` found one
   (NVENC / VideoToolbox / QSV / AMF / VAAPI), otherwise libx264 `veryfast`. Finals use
   libx264 (`slow`, CRF ~16–18, High profile, yuv420p, BT.709) because it gives the best
@@ -218,11 +232,13 @@ frame sampling into annotated contact sheets that the agent opens and judges →
 proposed fix as a concrete command → scorecard. The orchestrator applies fixes and repeats
 up to 4 rounds or until no blockers/majors remain, then stops and reports.
 
-### 4.7 Style layer [P2–P3]
+### 4.7 Style layer [built; reference analysis P6]
 
 `styles/*.style.yaml` holds editing parameters [built] (pause lengths, pads, filler policy,
-retake thresholds, join fades, pacing and loudness targets) and design tokens [P2–3] (colours,
-fonts, easing, spacing, safe zones). Client styles deep-merge over the default.
+retake thresholds, join fades, pacing and loudness targets), caption styles, and graphics design
+tokens [built] (colours, fonts, weights, sizes, radius, spacing, shadow, motion timing, safe area)
+plus graphics rules (reading time, simultaneity, punch-in scale, backing threshold). Client styles
+deep-merge over the default; `cutroom style --client-style` switches an edit's theme.
 `analyze-reference` turns reference videos into a style profile [P6].
 `docs/EDITING_STANDARDS.md` is the human-readable, cited rationale behind the defaults [built].
 
@@ -294,8 +310,8 @@ Cut), CMX 3600 EDL, and Premiere XML adapters, so a human can finish the edit in
 
 ## 9. Extensibility (§15 of the brief)
 
-Plugin manifest + auto-registration [P1], `cutroom ffmpeg` passthrough [P1], custom
-graphics compositions [P3], the self-extension rule (any new tool written during a job is
+Plugin manifest + auto-registration [P1], `cutroom ffmpeg` passthrough [P1], new graphics
+templates (a component + a JSON spec + a golden image, `templates/README.md`) [P3], the self-extension rule (any new tool written during a job is
 added to the library with a test and a line in `docs/TOOLS.md`), and `docs/CAPABILITIES.md`
 as the honest map of can / partially / cannot-yet.
 

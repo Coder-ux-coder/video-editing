@@ -41,7 +41,7 @@ def _faces_lookup(job: Job, tl):
 
 
 def _brightness_lookup(job: Job, tl):
-    """brightness(t, y0, y1) → 75th-percentile WCAG relative luminance of that band at timeline t."""
+    """brightness(t, y0, y1[, x0, x1]) → 75th-percentile WCAG relative luminance of that region at timeline t."""
     from cutroom.perception import visual as V
 
     @lru_cache(maxsize=512)
@@ -51,7 +51,7 @@ def _brightness_lookup(job: Job, tl):
             return None
         return V.grab_frames(job.abspath(s.proxy), [t], 180)[0]
 
-    def brightness(t: float, y0: float, y1: float) -> float | None:
+    def brightness(t: float, y0: float, y1: float, x0: float = 0.1, x1: float = 0.9, pct: float = 75) -> float | None:
         c = next((c for c in tl.track_clips() if c.start <= t < c.end), None)
         if c is None:
             return None
@@ -59,12 +59,12 @@ def _brightness_lookup(job: Job, tl):
         if img is None:
             return None
         h, w = img.shape[:2]
-        band = img[int(max(0, y0) * h): int(min(1, y1) * h), int(0.1 * w): int(0.9 * w)].astype(np.float32) / 255
+        band = img[int(max(0, y0) * h): int(min(1, y1) * h), int(max(0, x0) * w): int(min(1, x1) * w)].astype(np.float32) / 255
         if band.size == 0:
             return None
         lin = np.where(band <= 0.04045, band / 12.92, ((band + 0.055) / 1.055) ** 2.4)
         lum = 0.0722 * lin[..., 0] + 0.7152 * lin[..., 1] + 0.2126 * lin[..., 2]   # BGR order
-        return float(np.percentile(lum, 75))
+        return float(np.percentile(lum, pct))
     return brightness
 
 

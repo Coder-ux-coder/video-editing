@@ -10,7 +10,7 @@ from cutroom.cli_common import (JobArg, JsonOpt, SourcesOpt, VersionOpt, emit, e
                                 progress_bar, silenced)
 from cutroom.job import Job
 from cutroom.render.engine import render as do_render
-from cutroom.style import load_style
+from cutroom.style import timeline_style
 from cutroom.system.profile import load_profile
 from cutroom.timeline import store
 from cutroom.timeline.outline import tc
@@ -35,7 +35,7 @@ def _render(job: Job, version: str | None, mode: str, as_json: bool, *, captions
             audio_chain: bool = True, span: tuple[float, float] | None = None) -> dict:
     tl = store.load(job, version)
     prof = load_profile()
-    style = load_style(tl.meta.style, client=tl.meta.client)
+    style = timeline_style(tl)
     enc = prof.render.preview_encoder if mode == "preview" else prof.render.final_encoder
     with job_command(job, "render") as summary, progress_bar(f"render v{tl.meta.version:03d} {mode}", not as_json) as cb:
         rep = do_render(job, tl, mode=mode, encoder=enc, join_fade=style["editing"]["join_fade"],

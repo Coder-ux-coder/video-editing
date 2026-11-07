@@ -1,0 +1,40 @@
+{
+ "anchors": [
+  "center-left",
+  "center-right"
+ ],
+ "size_hint": {
+  "w": 0.48,
+  "h": 0.5
+ },
+ "fact_params": [
+  "data"
+ ],
+ "hides_captions": false,
+ "persistent": false,
+ "at_cut": false,
+ "id": "chart",
+ "component": "Chart",
+ "variants": [
+  "bar",
+  "line"
+ ],
+ "default_duration_s": 5.0,
+ "description": "Bar or line chart from a few data points (all values need a source).",
+ "zone": "side",
+ "params": {
+  "data": {
+   "type": "data",
+   "required": true,
+   "max_items": 8
+  },
+  "title": {
+   "type": "string",
+   "max_len": 40
+  },
+  "unit": {
+   "type": "string",
+   "max_len": 6
+  }
+ }
+}

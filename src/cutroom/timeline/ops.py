@@ -76,6 +76,52 @@ def pack(tl: Timeline, track: str = "V1") -> None:
     for c in tl.track_clips(track):
         c.start = round(t, 6)
         t += c.duration
+    if track == "V1":
+        sync_graphics(tl)
+
+
+def source_to_timeline(tl: Timeline, source: str, t: float, track: str = "V1") -> float | None:
+    """Where source moment ``t`` plays in the edit (None if it was cut)."""
+    for c in tl.track_clips(track):
+        if c.source == source and c._q(c.src_in) - 1e-6 <= t < c._q(c.src_out) - 1e-6:
+            return c.to_timeline(t)
+    return None
+
+
+REATTACH_S = 1.5   # a graphic whose moment was trimmed moves to the next kept moment this close
+
+
+def _next_kept(tl: Timeline, source: str, t: float, track: str = "V1") -> float | None:
+    later = [c._q(c.src_in) for c in tl.track_clips(track) if c.source == source and c._q(c.src_in) >= t]
+    return min(later) if later else None
+
+
+def sync_graphics(tl: Timeline) -> None:
+    """Move graphics with the content they are attached to after an edit; whole-video graphics
+    follow the new length. If a graphic's moment was trimmed (a shortened pause), it moves to the
+    next kept moment within 1.5 s; if its content is gone, it keeps its place and is flagged."""
+    dur = tl.duration
+    for g in tl.graphics:
+        if g.whole:
+            g.start, g.end = 0.0, round(dur, 3)
+            continue
+        if not g.attach:
+            continue
+        length = g.end - g.start
+        at = source_to_timeline(tl, g.attach["source"], g.attach["t"])
+        if at is None:
+            nxt = _next_kept(tl, g.attach["source"], g.attach["t"])
+            if nxt is not None and nxt - g.attach["t"] <= REATTACH_S:
+                g.attach["t"] = round(nxt, 4)
+                at = source_to_timeline(tl, g.attach["source"], nxt)
+        if at is None:
+            g.attach["detached"] = True
+            g.end = round(min(g.end, dur), 3)
+            g.start = round(min(g.start, max(0.0, g.end - length)), 3)
+            continue
+        g.attach.pop("detached", None)
+        g.start = round(max(0.0, at + g.attach.get("offset", 0.0)), 3)
+        g.end = round(min(dur, g.start + length), 3)
 
 
 # --------------------------------------------------------------------------- range arithmetic
@@ -260,6 +306,7 @@ def layout(tl: Timeline, ordered: list[Clip]) -> None:
     for c in ordered:
         c.start = round(t, 6)
         t += c.duration
+    sync_graphics(tl)
 
 
 def move_range(tl: Timeline, source: str, a: float, b: float, to: float, reason: str,
@@ -283,3 +330,35 @@ def move_range(tl: Timeline, source: str, a: float, b: float, to: float, reason:
         c.reason = (c.reason + "; " if c.reason else "") + f"moved: {reason}"
     layout(tl, rest[:k] + moving + rest[k:])
     return moving, boundaries[k]
+
+
+def extend_clip_edge(tl: Timeline, clip_id: str, edge: str, seconds: float,
+                     words: dict[str, WordsFile | None] | None = None, track: str = "V1") -> CutDecision:
+    """Lengthen a clip by ``seconds`` into the removed range next to it (``edge`` "out" or "in"),
+    only over material without words. Shrinks that cut accordingly; returns the cut."""
+    c = next((x for x in tl.clips if x.id == clip_id), None)
+    if c is None:
+        raise JobError(f"No clip '{clip_id}'.", fix="See `cutroom show`.")
+    if c.locked:
+        raise RefusedError(f"Clip {clip_id} is locked.", fix="Unlock it first.")
+    cuts = [x for x in tl.active_cuts() if x.source == c.source]
+    if edge == "out":
+        cut = next((x for x in cuts if abs(x.src_in - c.src_out) < 0.002), None)
+        a, b = c.src_out, c.src_out + seconds
+    else:
+        cut = next((x for x in cuts if abs(x.src_out - c.src_in) < 0.002), None)
+        a, b = c.src_in - seconds, c.src_in
+    if cut is None or a < cut.src_in - 1e-6 or b > cut.src_out + 1e-6:
+        raise RefusedError(f"There is not {seconds:.2f}s of removed material next to clip {clip_id}.",
+                           fix="Restore the cut or choose another fix.")
+    wf = (words or {}).get(c.source)
+    if wf and any(w.end > a + 0.01 and w.start < b - 0.01 for w in wf.words):
+        raise RefusedError("Lengthening the clip would bring back words.", fix="Choose another fix.")
+    if edge == "out":
+        c.src_out, cut.src_in = round(b, 3), round(b, 3)
+    else:
+        c.src_in, cut.src_out = round(a, 3), round(a, 3)
+    if cut.src_out - cut.src_in <= EPS:
+        cut.restored = True
+    pack(tl, track)
+    return cut

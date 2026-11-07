@@ -2,11 +2,12 @@
 //
 //   node render.mjs --composition Captions --props props.json --out DIR
 //                   [--concurrency N] [--browser /path/to/chrome-headless-shell] [--from F --to F]
+//                   [--frames 12,40,95]   (stills only: one browser, <frame>.png per listed frame)
 //
 // Prints JSON lines on stdout: {"progress": 0.42} ... then {"done": true, ...}. Frames are named
 // 000000.png, 000001.png, ... by composition frame number (FFmpeg reads them with %06d.png).
 import {bundle} from '@remotion/bundler';
-import {renderFrames, selectComposition} from '@remotion/renderer';
+import {openBrowser, renderFrames, renderStill, selectComposition} from '@remotion/renderer';
 import {createHash} from 'node:crypto';
 import {existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync} from 'node:fs';
 import path from 'node:path';
@@ -52,6 +53,23 @@ const main = async () => {
 	const composition = await selectComposition({serveUrl, id, inputProps, browserExecutable,
 		logLevel: 'error'});
 	mkdirSync(args.out, {recursive: true});
+	if (args.frames) {
+		const frames = args.frames.split(',').map(Number);
+		const t0 = Date.now();
+		const browser = await openBrowser('chrome', {browserExecutable, logLevel: 'error'});
+		try {
+			for (const [i, frame] of frames.entries()) {
+				await renderStill({composition, serveUrl, inputProps, frame, output: path.join(args.out, `${frame}.png`),
+					imageFormat: 'png', puppeteerInstance: browser, logLevel: 'error'});
+				console.log(JSON.stringify({progress: Number(((i + 1) / frames.length).toFixed(3))}));
+			}
+		} finally {
+			await browser.close({silent: true});
+		}
+		console.log(JSON.stringify({done: true, frames: frames.length, seconds: (Date.now() - t0) / 1000,
+			width: composition.width, height: composition.height, fps: composition.fps}));
+		return;
+	}
 	const from = args.from ? Number(args.from) : 0;
 	const to = args.to ? Number(args.to) : composition.durationInFrames - 1;
 	const total = to - from + 1;

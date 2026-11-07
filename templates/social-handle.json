@@ -1,0 +1,37 @@
+{
+ "anchors": [
+  "bottom-left",
+  "bottom-right"
+ ],
+ "size_hint": {
+  "w": 0.28,
+  "h": 0.07
+ },
+ "fact_params": [],
+ "hides_captions": false,
+ "persistent": false,
+ "at_cut": false,
+ "id": "social-handle",
+ "component": "Handle",
+ "variants": [
+  "pill",
+  "plain"
+ ],
+ "default_duration_s": 4.0,
+ "description": "Social handle or website.",
+ "zone": "lower",
+ "params": {
+  "handle": {
+   "type": "string",
+   "required": true,
+   "max_len": 40
+  },
+  "platform": {
+   "type": "string",
+   "max_len": 20
+  }
+ },
+ "backing_variants": [
+  "plain"
+ ]
+}

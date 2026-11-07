@@ -1,4 +1,4 @@
-"""Timeline commands: assemble, show, validate, diff, versions, undo, checkout, snapshot."""
+"""Timeline commands: assemble, show, validate, diff, versions, undo, checkout, snapshot, style."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from cutroom.job import Job
 from cutroom.tools.registry import ToolManifest, tool
 from cutroom.timeline import store
 from cutroom.timeline.diff import diff, diff_text
-from cutroom.timeline.model import validate_timeline
+from cutroom.timeline.model import timeline_warnings, validate_timeline
 from cutroom.timeline.ops import assemble as do_assemble
 from cutroom.timeline.ops import check_cut_points, words_for
 from cutroom.timeline.outline import cut_list, outline, summary, tc
@@ -62,16 +62,20 @@ def show(job_id: JobArg, version: VersionOpt = None,
 @tool(ToolManifest("validate", "Validate a timeline (schema, structure, word-boundary cuts).", "timeline",
                    inputs=["timeline version"], outputs=["problems list"], tests=TESTS))
 def validate(job_id: JobArg, version: VersionOpt = None, as_json: JsonOpt = False) -> None:
-    """Check a timeline: schema, overlaps, source ranges, and that no cut lands inside a word."""
+    """Check a timeline: schema, overlaps, source ranges, and that no cut lands inside a word.
+    Warnings (graphics whose moment was cut, unsourced numbers) are listed but do not fail."""
     job = Job.load(job_id)
     tl = store.load(job, version)
     words = {s.id: words_for(job, s.id) for s in tl.sources}
     problems = validate_timeline(tl) + check_cut_points(tl, words)
-    emit(as_json, {"version": tl.meta.version, "valid": not problems, "problems": problems})
+    warnings = timeline_warnings(tl)
+    emit(as_json, {"version": tl.meta.version, "valid": not problems, "problems": problems, "warnings": warnings})
     if not as_json:
         out.print(f"v{tl.meta.version:03d}: " + ("[green]valid[/]" if not problems else "[red]problems:[/]"))
         for p in problems:
             out.print(f"  - {p}")
+        for w in warnings:
+            out.print(f"  [yellow]! {w}[/]")
     if problems:
         raise typer.Exit(1)
 
@@ -151,3 +155,49 @@ def snapshot(job_id: JobArg, message: Annotated[str, typer.Option("--message", "
     emit(as_json, {"version": n})
     if not as_json:
         out.print(f"Snapshot saved as v{n:03d}")
+
+
+@tool(ToolManifest("style", "Switch the style or client theme of an edit (graphics and captions restyle on render).",
+                   "timeline", inputs=["timeline HEAD", "styles/*.style.yaml"], outputs=["timeline vN+1"],
+                   tests=["tests/test_graphics.py"], changes_timeline=True))
+def style(job_id: JobArg,
+          name: Annotated[Optional[str], typer.Option("--name", help="Style (styles/<name>.style.yaml).")] = None,
+          client_style: Annotated[Optional[str], typer.Option("--client-style", help="Client theme (styles/clients/<name>.style.yaml); 'none' to clear.")] = None,
+          as_json: JsonOpt = False) -> None:
+    """Every graphic and caption takes its colours, fonts, sizes and motion from the style's
+    design tokens, so switching the theme restyles the whole edit without touching it."""
+    from cutroom.style import list_styles, load_style, styles_dir
+
+    job = Job.load(job_id)
+    tl = store.load(job).model_copy(deep=True)
+    if name:
+        load_style(name)          # fails loudly with the list of styles
+        tl.meta.style = name
+    if client_style:
+        if client_style == "none":
+            tl.meta.client_style = None
+        elif not (styles_dir() / "clients" / f"{client_style}.style.yaml").is_file():
+            known = ", ".join(p.stem.replace(".style", "") for p in (styles_dir() / "clients").glob("*.style.yaml"))
+            raise RefusedError(f"No client style '{client_style}'.", fix=f"Known: {known or 'none'}; "
+                               f"styles: {', '.join(list_styles())}.")
+        else:
+            tl.meta.client_style = client_style
+    if not name and not client_style:
+        emit(as_json, {"style": tl.meta.style, "client_style": tl.meta.client_style})
+        if not as_json:
+            out.print(f"style: {tl.meta.style}, client theme: {tl.meta.client_style or tl.meta.client or 'none'}")
+        return
+    from cutroom.graphics.contrast import theme_problems
+    from cutroom.style import timeline_style
+
+    problems = theme_problems(timeline_style(tl).get("graphics", {}).get("theme", {}))
+    n = store.save_new(job, tl, command="style",
+                       summary=f"style {tl.meta.style}, client theme {tl.meta.client_style or 'none'}")
+    for p in problems:
+        job.log.warn(f"theme contrast: {p}")
+    emit(as_json, {"version": n, "style": tl.meta.style, "client_style": tl.meta.client_style,
+                   "contrast_problems": problems})
+    if not as_json:
+        out.print(f"style {tl.meta.style}, client theme {tl.meta.client_style or 'none'} → v{n:03d}")
+        for p in problems:
+            out.print(f"[yellow]  ! theme contrast: {p}[/]")

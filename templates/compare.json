@@ -1,0 +1,27 @@
+{
+ "anchors": [],
+ "size_hint": null,
+ "fact_params": [],
+ "hides_captions": false,
+ "persistent": false,
+ "at_cut": false,
+ "id": "compare",
+ "component": "Compare",
+ "variants": [
+  "versus",
+  "proscons"
+ ],
+ "default_duration_s": 6.0,
+ "description": "Two-column comparison or pros and cons.",
+ "zone": "full",
+ "params": {
+  "left": {
+   "type": "column",
+   "required": true
+  },
+  "right": {
+   "type": "column",
+   "required": true
+  }
+ }
+}

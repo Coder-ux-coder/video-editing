@@ -1,9 +1,9 @@
 import React from 'react';
 import {interpolate} from 'remotion';
-import {placeStyle, useMotion} from '../../themes/theme.js';
+import {backingStyle, placeStyle, useMotion} from '../../themes/theme.js';
 
 /** Name + title. Variants: bar (accent bar + panel), pill (rounded panel), minimal (text + rule). */
-export const LowerThird = ({params, variant = 'bar', theme, placement, duration}) => {
+export const LowerThird = ({params, variant = 'bar', theme, placement, duration, backing}) => {
 	const {name = '', title = ''} = params;
 	const a = useMotion(theme, duration);
 	const b = useMotion(theme, duration, 1);
@@ -17,7 +17,7 @@ export const LowerThird = ({params, variant = 'bar', theme, placement, duration}
 	const wrap = {...placeStyle(placement, theme), opacity: a.exit, transform: `translateX(${slide}px)`};
 	if (variant === 'minimal') {
 		return (
-			<div style={wrap}>
+			<div style={{...wrap, ...backingStyle(theme, backing)}}>
 				<div style={{...nameStyle, textShadow: '0 2px 10px rgba(0,0,0,0.6)'}}>{name}</div>
 				<div style={{height: Math.max(2, theme.base * 0.004), background: c.accent, width: `${a.enter * 100}%`,
 					margin: `${theme.space * 0.4}px 0`}}/>

@@ -1,0 +1,26 @@
+{
+ "anchors": [],
+ "size_hint": null,
+ "fact_params": [],
+ "hides_captions": true,
+ "persistent": false,
+ "at_cut": false,
+ "id": "chapter-card",
+ "component": "TitleCard",
+ "variants": [
+  "chapter"
+ ],
+ "default_duration_s": 2.5,
+ "description": "Chapter number and title between sections.",
+ "zone": "full",
+ "params": {
+  "number": {
+   "type": "integer"
+  },
+  "title": {
+   "type": "string",
+   "required": true,
+   "max_len": 50
+  }
+ }
+}

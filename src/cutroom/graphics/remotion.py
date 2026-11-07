@@ -52,8 +52,10 @@ def browser_executable() -> str | None:
 
 
 def render_overlay(props: dict, out_dir: Path, *, composition: str = "Captions", concurrency: int | None = None,
-                   on_progress: Callable[[float], None] | None = None, scratch: Path | None = None) -> dict:
-    """Render ``composition`` with ``props`` to ``out_dir`` as NNNN.png frames (transparent)."""
+                   on_progress: Callable[[float], None] | None = None, scratch: Path | None = None,
+                   frames: list[int] | None = None) -> dict:
+    """Render ``composition`` with ``props`` to ``out_dir`` as NNNN.png frames (transparent).
+    With ``frames``, render only those frames as stills named <frame>.png."""
     g = ensure_installed()
     node = node_path()
     scratch = scratch or out_dir.parent
@@ -65,6 +67,8 @@ def render_overlay(props: dict, out_dir: Path, *, composition: str = "Captions",
            "--out", str(out_dir)]
     if concurrency:
         cmd += ["--concurrency", str(concurrency)]
+    if frames:
+        cmd += ["--frames", ",".join(str(int(f)) for f in frames)]
     b = browser_executable()
     if b:
         cmd += ["--browser", b]
@@ -90,7 +94,30 @@ def render_overlay(props: dict, out_dir: Path, *, composition: str = "Captions",
             fix = ("Remotion could not start Chrome. Run `npx remotion browser ensure` in graphics/, "
                    "or set CUTROOM_BROWSER to a Chrome Headless Shell executable.")
         raise CutroomError(f"Remotion render of {composition} failed.", fix=fix, details=detail)
+    result["opaque_frames_fixed"] = normalize_alpha(out_dir)
     return result
+
+
+def normalize_alpha(out_dir: Path) -> int:
+    """Chrome writes a fully opaque frame (a dip to black at its peak) as an RGB PNG. In a
+    sequence of RGBA frames that would change FFmpeg's input pixel format mid-stream, so such
+    frames are rewritten with an opaque alpha channel. Returns how many were rewritten."""
+    import cv2
+    import numpy as np
+
+    fixed = 0
+    for p in out_dir.glob("*.png"):
+        with p.open("rb") as fh:
+            head = fh.read(26)
+        if len(head) == 26 and head[25] != 6:      # PNG IHDR colour type 6 = RGBA
+            img = cv2.imread(str(p), cv2.IMREAD_UNCHANGED)
+            if img.ndim == 2:
+                img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+            if img.shape[2] == 3:
+                img = np.dstack([img, np.full(img.shape[:2], 255, np.uint8)])
+            cv2.imwrite(str(p), img)
+            fixed += 1
+    return fixed
 
 
 def frame_pattern(out_dir: Path) -> tuple[str, int]:

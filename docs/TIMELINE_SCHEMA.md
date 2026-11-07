@@ -35,6 +35,7 @@ never hand-edit version files, use cutroom commands (each writes a new version).
 | `client` | `str \| None` | `None` |  |
 | `brief` | `str` | `'brief.md'` |  |
 | `style` | `str` | `'default'` |  |
+| `client_style` | `str \| None` | `None` | Client theme (styles/clients/<name>.style.yaml); defaults to the job's client. |
 | `fps` | `float` | required | Output frame rate (snapped standard rate, e.g. 29.97). |
 | `width` | `int` | required |  |
 | `height` | `int` | required |  |
@@ -148,16 +149,24 @@ never hand-edit version files, use cutroom commands (each writes a new version).
 | field | type | default | description |
 |---|---|---|---|
 | `id` | `str` | required |  |
-| `template` | `str` | required |  |
+| `template` | `str` | required | Template id (templates/<id>.json). |
+| `variant` | `str \| None` | `None` |  |
 | `params` | `dict` | `{}` |  |
 | `start` | `float` | required |  |
 | `end` | `float` | required |  |
 | `track` | `str` | `'G1'` |  |
 | `anchor` | `str` | `'auto'` |  |
+| `placement` | `dict` | `{}` | Resolved {anchor, x, y} (frame fractions). |
 | `animation` | `str \| None` | `None` |  |
 | `z` | `int` | `0` |  |
 | `transcript_span` | `tuple[float, float] \| None` | `None` |  |
 | `facts` | `list[str]` | `[]` | Where every number/claim shown comes from (transcript span or document). |
+| `fact_check` | `dict` | `{}` | Numbers verified against the references when added. |
+| `attach` | `dict \| None` | `None` | {source, t, offset}: the source moment the graphic is attached to. Edits move it with its content (start = that moment + offset). |
+| `whole` | `bool` | `False` | Spans the whole video (progress bar, logo bug); follows its length. |
+| `hides_captions` | `bool` | `False` | Burned-in captions are hidden while it is on screen. |
+| `backing` | `bool \| None` | `None` | Panel behind panel-less text: None = automatic (contrast of the theme's text colours against bg_luminance), or forced on/off. |
+| `bg_luminance` | `list[float] \| None` | `None` | Footage under the graphic: [25th, 75th] percentile WCAG relative luminance (darkest look, brightest look). |
 | `reason` | `str` | `''` |  |
 
 ## Captions
