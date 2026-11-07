@@ -141,3 +141,35 @@ captions:
       karaoke: false
       max_words: 14
       lines: 2
+
+graphics:
+  # Design tokens: every motion graphic takes its look only from here (client styles override).
+  theme:
+    colors:
+      primary: "#6D28D9"        # brand colour: bars, highlights, chart series
+      accent: "#FFD60A"         # emphasis: numbers, active items
+      text: "#FFFFFF"
+      textMuted: "rgba(255,255,255,0.78)"
+      textOnLight: "#0B0B12"
+      surface: "rgba(12,12,18,0.84)"   # panels behind text (contrast over any footage)
+      surfaceLight: "#FFFFFF"
+      positive: "#22C55E"
+      negative: "#EF4444"
+      scrim: "rgba(0,0,0,0.45)"
+    fonts: {heading: Montserrat, body: Inter}
+    weights: {heading: 800, body: 500, label: 700}
+    sizes: {title: 0.075, heading: 0.048, body: 0.032, label: 0.024, number: 0.11}   # x min(width, height)
+    radius: 0.012
+    spacing: 0.018
+    shadow: "0 10px 30px rgba(0,0,0,0.35)"
+    stroke: 0.0
+    # Motion language (EDITING_STANDARDS §7): entrances 8-14 frames ease-out/spring, exits 6-10
+    # ease-in, items staggered 3-6 frames.
+    motion: {enter_frames: 12, exit_frames: 8, stagger_frames: 4, spring_damping: 18, spring_stiffness: 170}
+    safe: {left: 0.06, right: 0.94, top: 0.07, bottom: 0.93}
+  rules:
+    min_hold_s: 1.0             # text stays at least 1 s ...
+    hold_per_3_words_s: 0.3     # ... plus 0.3 s per 3 words
+    max_simultaneous: 2         # never more than 2 animated graphics at once on a talking head
+    caption_band_clearance: 0.02
+    punch_in_scale: 1.12        # jump-cut disguise: alternate 100% / 112%

@@ -97,3 +97,53 @@ remove them), editorial retake rules from real speech, version store, plugins, p
 **Next: Phase 2** (audio polish and captions): voice chain, loudness normalisation, three
 animated caption styles with Remotion, SRT/VTT export. Acceptance: loudness on target, caption
 sync ≤ 80 ms, no caption in unsafe zones.
+
+## Phase 2: Audio polish and captions (2026-11-07)
+
+**Built**
+
+- Remotion graphics package (`graphics/`, pinned, fonts bundled offline) and its bridge: Python
+  plans, Remotion draws transparent frames in headless Chrome, FFmpeg composites them inside the
+  normal video pass (no extra encode). You chose Remotion over libass for captions.
+- Caption engine with 4 styles (`clean`, `bold-karaoke`, `word-highlight`, `minimal`): karaoke
+  word highlight, word pop, emphasis (≤ 1 per caption), entrance animations, automatic contrast
+  scrim, placement off the mouth, long-form and Shorts safe zones.
+- Caption planner: optimal sense-based phrasing per sentence (no dangling function words or
+  pronouns; names and numbers kept with their words; breaks before function words; mid-phrase
+  pauses do not split phrases), clean verbatim (fillers out, sentence starts capitalised).
+- `.srt` / `.vtt` export; range renders (`render --range A-B`).
+- Voice chain planned from measurements (`cutroom audio`): high-pass, denoise only when needed,
+  gentle EQ, compression from the measured speech level, de-ess; loudness by linear gain and a
+  4× oversampled limiter with encoder headroom; `cutroom loudness`.
+- Render self-checks: loudness on target, true peak, captions inside the safe zone (measured on
+  drawn pixels), caption sync against speech onsets.
+- Setup installs the graphics package and Chrome Headless Shell; doctor renders test captions.
+- Playbooks 05 (audio) and 06 (captions).
+
+**Bugs found and fixed on the way** (all now have regression tests)
+
+- Timeline time drifted from rendered time by up to 142 ms after 98 clips (frame rounding
+  accumulated): the timeline now lays clips out on the render's frame grid (error 0.000 ms).
+- Whisper reported no gap where there was a 0.26 s pause: refinement now finds hidden pauses.
+- Dynamic loudness normalisation + AAC gave −0.5 dBTP: replaced by gain + oversampled limiter.
+
+**Acceptance run** (the 10-minute NPS interview, edited end to end from raw footage):
+
+| Check | Target | Result |
+|---|---|---|
+| Loudness | −14 LUFS ±1 | **−14.2 LUFS** |
+| True peak | ≤ −1 dBTP | **−1.4 dBTP** |
+| Caption sync | within 80 ms | **97.7 %** of 86 measurable captions; median 18.6 ms, p95 42 ms (15 with an inaudibly quiet first word and 3 whose onset is an edit join are reported as unmeasurable) |
+| Captions in safe zone | none outside | **0 of 1,180** checked frames outside |
+| Lines ending on a dangling word | 0 | **0** of 178 captions |
+| Frames / clicks / edit lists | exact / 0 / none | 15,658 of 15,658; 0 clicks at 133 joins; none |
+| Render time (9 min, 540p preview with captions) | | 6 min 50 s on 4 cores |
+
+**Known limits**
+
+- Reading speed: this speaker talks fast; 66 of 178 captions exceed 17 chars/s (median 15.7).
+  Captions follow speech; condensing them would need agent-edited text (planned option).
+- Remotion draws every frame: captions add ~4–5 minutes to a 9-minute render on 4 cores.
+- EQ is a gentle fixed curve; no hum removal or music separation yet.
+
+**Next: Phase 3** (motion graphics library).

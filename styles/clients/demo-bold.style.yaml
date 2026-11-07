@@ -1,0 +1,16 @@
+# Demo client style used by tests and the Phase 3 acceptance: proves one file switches the look.
+name: demo-bold
+captions:
+  default_style: bold-karaoke
+graphics:
+  theme:
+    colors:
+      primary: "#E11D48"
+      accent: "#22D3EE"
+      surface: "rgba(255,255,255,0.94)"
+      text: "#111827"
+      textMuted: "rgba(17,24,39,0.72)"
+    fonts: {heading: Inter, body: Inter}
+    weights: {heading: 900, body: 600, label: 800}
+    radius: 0.03
+    motion: {enter_frames: 9, exit_frames: 6, stagger_frames: 3}
