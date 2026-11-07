@@ -38,10 +38,12 @@
   "CaptionCue": {
    "properties": {
     "start": {
+     "description": "Timeline time the caption appears (s).",
      "title": "Start",
      "type": "number"
     },
     "end": {
+     "description": "Timeline time it disappears (s).",
      "title": "End",
      "type": "number"
     },
@@ -50,6 +52,7 @@
      "type": "string"
     },
     "words": {
+     "description": "[{text, start, end}] in timeline time.",
      "items": {
       "additionalProperties": true,
       "type": "object"
@@ -57,12 +60,39 @@
      "title": "Words",
      "type": "array"
     },
+    "lines": {
+     "description": "Word indices per line.",
+     "items": {
+      "items": {
+       "type": "integer"
+      },
+      "type": "array"
+     },
+     "title": "Lines",
+     "type": "array"
+    },
     "emphasis": {
+     "description": "Indices of emphasised words.",
      "items": {
       "type": "integer"
      },
      "title": "Emphasis",
      "type": "array"
+    },
+    "placement": {
+     "default": "bottom",
+     "enum": [
+      "bottom",
+      "top"
+     ],
+     "title": "Placement",
+     "type": "string"
+    },
+    "scrim": {
+     "default": false,
+     "description": "Darkening behind the text, added when the background is too bright.",
+     "title": "Scrim",
+     "type": "boolean"
     }
    },
    "required": [
@@ -90,12 +120,23 @@
      "title": "Max Lines",
      "type": "integer"
     },
+    "burn_in": {
+     "default": true,
+     "description": "Draw the captions into the video (files are always exported too).",
+     "title": "Burn In",
+     "type": "boolean"
+    },
     "cues": {
      "items": {
       "$ref": "#/$defs/CaptionCue"
      },
      "title": "Cues",
      "type": "array"
+    },
+    "stats": {
+     "additionalProperties": true,
+     "title": "Stats",
+     "type": "object"
     }
    },
    "title": "Captions",

@@ -1,0 +1,21 @@
+{
+  "name": "cutroom-graphics",
+  "private": true,
+  "description": "Cutroom motion graphics and captions (Remotion). Rendered as transparent overlays that FFmpeg composites.",
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.js",
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "@fontsource/inter": "5.3.0",
+    "@fontsource/montserrat": "5.3.0",
+    "@remotion/bundler": "4.0.541",
+    "@remotion/cli": "4.0.541",
+    "@remotion/layout-utils": "4.0.541",
+    "@remotion/renderer": "4.0.541",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.541"
+  }
+}

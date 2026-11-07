@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, model_validator
 
 from cutroom.joblog import now_iso
 
@@ -116,20 +116,27 @@ class Clip(BaseModel):
             raise ValueError(f"clip {self.id}: src_out ({self.src_out}) must be after src_in ({self.src_in})")
         return self
 
+    # The timeline's frame rate, set by the Timeline. The renderer cuts on the frame grid, so
+    # durations and time mapping use frame-snapped edges: timeline time == rendered time.
+    _fps: float | None = PrivateAttr(default=None)
+
+    def _q(self, s: float) -> float:
+        return round(s * self._fps) / self._fps if self._fps else s
+
     @property
     def duration(self) -> float:
-        return (self.src_out - self.src_in) / self.speed
+        return (self._q(self.src_out) - self._q(self.src_in)) / self.speed
 
     @property
     def end(self) -> float:
         return self.start + self.duration
 
     def to_source(self, t: float) -> float:
-        """Timeline time → source time inside this clip."""
-        return self.src_in + (t - self.start) * self.speed
+        """Timeline time → source time inside this clip (as rendered)."""
+        return self._q(self.src_in) + (t - self.start) * self.speed
 
     def to_timeline(self, s: float) -> float:
-        return self.start + (s - self.src_in) / self.speed
+        return self.start + (s - self._q(self.src_in)) / self.speed
 
 
 class CutDecision(BaseModel):
@@ -167,18 +174,23 @@ class Graphic(BaseModel):
 
 
 class CaptionCue(BaseModel):
-    start: float
-    end: float
+    start: float = Field(description="Timeline time the caption appears (s).")
+    end: float = Field(description="Timeline time it disappears (s).")
     text: str
-    words: list[dict] = Field(default_factory=list)
-    emphasis: list[int] = Field(default_factory=list)
+    words: list[dict] = Field(default_factory=list, description="[{text, start, end}] in timeline time.")
+    lines: list[list[int]] = Field(default_factory=list, description="Word indices per line.")
+    emphasis: list[int] = Field(default_factory=list, description="Indices of emphasised words.")
+    placement: Literal["bottom", "top"] = "bottom"
+    scrim: bool = Field(False, description="Darkening behind the text, added when the background is too bright.")
 
 
 class Captions(BaseModel):
     style: str = "clean"
     safe_zone: str = "youtube_long"
     max_lines: int = 2
+    burn_in: bool = Field(True, description="Draw the captions into the video (files are always exported too).")
     cues: list[CaptionCue] = Field(default_factory=list)
+    stats: dict = Field(default_factory=dict)
 
 
 class AudioSpec(BaseModel):
@@ -220,6 +232,15 @@ class Timeline(BaseModel):
     audio: AudioSpec = Field(default_factory=AudioSpec)
     markers: list[Marker] = Field(default_factory=list)
     outputs: list[Output] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _frame_grid(self) -> "Timeline":
+        self.attach_fps()
+        return self
+
+    def attach_fps(self) -> None:
+        for c in self.clips:
+            c._fps = self.meta.fps
 
     # ------------------------------------------------------------------ helpers
     def source(self, sid: str) -> SourceRef:

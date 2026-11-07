@@ -201,7 +201,7 @@ def check_gpu(r: DoctorReport, machine) -> int:
 def check_node(r: DoctorReport) -> None:
     node = shutil.which("node")
     if not node:
-        r.add("node", "warn", "Node.js not found (needed from Phase 3 for motion graphics).",
+        r.add("node", "fail", "Node.js not found (needed for captions and motion graphics).",
               "Re-run setup, or install Node.js LTS (20+) from nodejs.org.")
         return
     try:
@@ -210,9 +210,49 @@ def check_node(r: DoctorReport) -> None:
         out = ""
     m = re.match(r"v(\d+)", out)
     if not m or int(m.group(1)) < MIN_NODE_MAJOR:
-        r.add("node", "warn", f"Node.js {out or '?'} is too old (need {MIN_NODE_MAJOR}+).", "Install Node.js LTS.")
+        r.add("node", "fail", f"Node.js {out or '?'} is too old (need {MIN_NODE_MAJOR}+).", "Install Node.js LTS.")
     else:
         r.add("node", "ok", f"Node.js {out}")
+    from cutroom.graphics.remotion import graphics_dir
+
+    g = graphics_dir()
+    if (g / "node_modules" / "@remotion" / "renderer").is_dir():
+        version = json.loads((g / "node_modules" / "remotion" / "package.json").read_text()).get("version")
+        r.add("graphics package", "ok", f"Remotion {version} installed in {g}")
+    else:
+        r.add("graphics package", "fail", "Remotion is not installed.", f"Run `npm ci` in {g} (setup does this).")
+
+
+def check_caption_render(r: DoctorReport) -> None:
+    """Render 10 caption frames with Remotion and check the transparent PNGs really contain text."""
+    import cv2
+
+    from cutroom.graphics.remotion import render_overlay
+    from cutroom.style import load_style
+
+    style = load_style()
+    from cutroom.captions.plan import resolved_style
+
+    st = resolved_style(style["captions"]["styles"]["bold-karaoke"], 320, 180)
+    line = [{"text": "Doctor", "from": 0, "to": 5, "emph": False}, {"text": "check", "from": 5, "to": 10, "emph": True}]
+    props = {"width": 320, "height": 180, "fps": 10, "durationInFrames": 10, "style": st,
+             "safe": style["captions"]["safe_zones"]["youtube_long"],
+             "cues": [{"id": "q0", "from": 0, "to": 10, "placement": "bottom", "scrim": False, "lines": [line]}]}
+    t0 = time.perf_counter()
+    try:
+        with tempfile.TemporaryDirectory(prefix="cutroom-gfx-") as td:
+            out = Path(td) / "frames"
+            render_overlay(props, out, concurrency=1, scratch=Path(td))
+            img = cv2.imread(str(sorted(out.glob("*.png"))[5]), cv2.IMREAD_UNCHANGED)
+            drawn = img is not None and img.shape[2] == 4 and int((img[:, :, 3] > 64).sum()) > 50
+    except CutroomError as e:
+        r.add("caption render", "fail", e.message, e.fix)
+        return
+    if drawn:
+        r.add("caption render", "ok", f"Remotion drew transparent caption frames ({time.perf_counter() - t0:.1f}s incl. bundling)")
+    else:
+        r.add("caption render", "fail", "Remotion ran but the frames are empty.",
+              "Check fonts/browser; run `npx remotion browser ensure` in graphics/.")
 
 
 # --------------------------------------------------------------------------- ASR selection
@@ -512,6 +552,8 @@ def run_doctor(*, quick: bool = False, select_asr: bool = False, asr_model: str 
     elif not can_smoke:
         r.add("smoke test", "skip", "Skipped because earlier checks failed.", "Fix the failures above and re-run.")
     else:
+        log("caption render (Remotion)")
+        check_caption_render(r)
         try:
             smoke = run_smoke_test(profile.asr, log=log)
             r.smoke = smoke

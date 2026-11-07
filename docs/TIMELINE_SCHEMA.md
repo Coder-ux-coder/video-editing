@@ -167,17 +167,22 @@ never hand-edit version files, use cutroom commands (each writes a new version).
 | `style` | `str` | `'clean'` |  |
 | `safe_zone` | `str` | `'youtube_long'` |  |
 | `max_lines` | `int` | `2` |  |
+| `burn_in` | `bool` | `True` | Draw the captions into the video (files are always exported too). |
 | `cues` | `list[CaptionCue]` | `[]` |  |
+| `stats` | `dict` | `{}` |  |
 
 ## CaptionCue
 
 | field | type | default | description |
 |---|---|---|---|
-| `start` | `float` | required |  |
-| `end` | `float` | required |  |
+| `start` | `float` | required | Timeline time the caption appears (s). |
+| `end` | `float` | required | Timeline time it disappears (s). |
 | `text` | `str` | required |  |
-| `words` | `list[dict]` | `[]` |  |
-| `emphasis` | `list[int]` | `[]` |  |
+| `words` | `list[dict]` | `[]` | [{text, start, end}] in timeline time. |
+| `lines` | `list[list[int]]` | `[]` | Word indices per line. |
+| `emphasis` | `list[int]` | `[]` | Indices of emphasised words. |
+| `placement` | `Literal['bottom', 'top']` | `'bottom'` |  |
+| `scrim` | `bool` | `False` | Darkening behind the text, added when the background is too bright. |
 
 ## AudioSpec
 

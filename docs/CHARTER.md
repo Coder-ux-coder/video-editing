@@ -3,7 +3,7 @@
 *Working name: "Cutroom". Tell me if you want a different name; it is used in the CLI
 command, the Python package and the docs.*
 
-Last updated: 2026-11-07 (Phase 1).
+Last updated: 2026-11-07 (Phase 2).
 
 ## 1. Mission
 
@@ -131,12 +131,23 @@ Conclusions:
 | YuNet (via OpenCV, Apache-2.0; model MIT, 232 KB) for faces instead of MediaPipe | Much lighter install, same job for Phase 1 (presence, framing, mouth region). MediaPipe may still be evaluated for Phase 5 reframing. |
 | Reorder (`move`) and sentence-level `cut` built in Phase 1 | Needed for a real cold open in the acceptance edit; small given the timeline model. |
 
+### 4.5 Phase 2 decisions
+
+| Decision | Why / evidence |
+|---|---|
+| Captions are drawn by Remotion (your choice, 2026-11-07) | You chose Remotion over libass when asked. Measured cost on 4 cores: 1,800 transparent 1080p frames in 42 s (43 fps) and 136 MB of temporary PNGs per minute. Captions render once per render pass and are composited by FFmpeg in the same encode (no extra encode). |
+| Caption phrasing by an optimal split, not "fill up to N words" | Greedy filling produced "…welcome to / the test clip", "400 / grams", "White / Sands". The planner now scores every possible split of each sentence: no dangling function words or subject pronouns at line/caption ends, names and number+unit kept together, breaks preferred before function words and at commas, mid-phrase pauses do not split a phrase. On the 9-minute interview: 179 captions, 0 lines ending on a dangling word. |
+| Word refinement also checks words Whisper reports as touching | A 0.26 s pause between sentences was unreported, which made the first caption 265 ms early. Refinement now looks for hidden pauses ≥ 120 ms (longer than stop consonants). Ground-truth accuracy unchanged (17 / 70 ms). |
+| Voice chain planned from measurements, loudness in two passes | Denoise only when speech/noise < 35 dB (the interview: 41.9 dB → no denoise); compressor threshold 8 dB under the measured speech level; loudnorm two-pass, linear gain when the true-peak ceiling allows. Internal target −1.5 dBTP so AAC encoding stays under −1 dBTP. |
+| Range renders (`render --range A-B`) | Reviewing a style or a fix should not cost a full render. |
+
 ## 5. Decisions you made
 
 | Date | Question | Your answer | Consequence |
 |---|---|---|---|
 | 2026-11-07 | Remotion eligibility | You work as an individual (fewer than 3 people) | Remotion's free licence applies. Phase 3 uses Remotion. If the business grows past 3 employees, a paid Company License becomes necessary; the graphics layer is isolated so it could then be swapped for the free Playwright-based alternative (`ARCHITECTURE.md` §11). Re-check when Remotion 5.0 changes its licence. |
 | 2026-11-07 | Name | No change requested | "Cutroom" stays. |
+| 2026-11-07 | Caption renderer: Remotion or libass | Remotion | Captions drawn in Remotion (React), composited by FFmpeg. Slower renders than libass (measured above); maximum animation freedom; one graphics engine for captions and Phase 3 graphics. |
 
 ## 6. Risks and how they are handled
 

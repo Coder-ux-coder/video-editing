@@ -27,3 +27,4 @@ graphics/out/
 Thumbs.db
 .idea/
 .vscode/
+.bundle-cache/

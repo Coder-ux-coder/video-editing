@@ -86,6 +86,12 @@ Audio is more than half of perceived quality: viewers forgive soft video, not ba
 de-ess → loudness normalisation → true-peak limiter. Each step is subtle; artefacts
 (warbly denoise, pumping) are worse than the noise they remove.
 
+Cutroom's chain (`cutroom audio`) decides each stage from measurements: denoise only below
+35 dB speech/noise; compressor threshold 8 dB under the measured speech level; loudness by a
+single linear gain to target followed by a limiter that runs at 4× the sample rate (so peaks
+between samples count) with 1 dB of extra headroom for the AAC encoder. No dynamic loudness
+riding: dynamics stay natural. Every render measures the final file.
+
 | Target | Value | Evidence |
 |---|---|---|
 | Long-form integrated loudness | **−14 LUFS** ±1 LU (`audio.target_lufs`) | YouTube normalises playback to about −14 LUFS and turns louder uploads down ([Production Advice](https://productionadvice.co.uk/youtube-music/), [Meterplugs](https://meterplugs.com/blog/2019/09/18/youtube-changes-loudness-reference-to-14-lufs.html)). [Consensus; YouTube does not publish this officially] |
@@ -105,7 +111,9 @@ de-ess → loudness normalisation → true-peak limiter. Each step is subtle; ar
 | Reading speed | Target ≤ **17 characters/second**; never above 20 | 20 cps (adult) / 17 cps (children) commonly attributed to Netflix's English guide; sources disagree, so the stricter figure is the default [Consensus] |
 | Minimum on screen | 1 s plus ~0.3 s per 3 words (text graphics); captions follow speech | [Default] |
 | Sync | Word start within **80 ms** of the audio | Brief requirement; refined word timings measured at 17 ms mean / 70 ms worst on ground truth |
-| Break lines at phrase boundaries, never between an article and its noun or inside a name | | [Consensus] |
+| Break lines and captions at phrase boundaries: before function words ("that", "and", "in"), after commas; never after an article, preposition, conjunction, auxiliary or subject pronoun ("…welcome **to** / the clip", "older **than they** / have"); never inside a name ("White / Sands") or between a number and its unit ("400 / grams") | Cutroom solves this per sentence as an optimisation over all possible splits | [Consensus] |
+| A pause inside a phrase ("at White Sands during [pause] the last ice age") does not split the phrase unless it is long (≥ 1 s); a pause between phrases always does | `break_on_pause: 0.35` | [Default] |
+| Clean verbatim: fillers left out of captions, sentence starts capitalised even when a filler was removed | | [Consensus] |
 | Emphasis | At most one emphasised word per phrase, only genuinely key words | [Default] |
 | Contrast | ≥ 4.5:1 text/background (add a subtle shadow or scrim over busy video) | [WCAG 2.x SC 1.4.3](https://a11ybot.pages.dev/learn/1-4-3-contrast/) [Official for web; adopted here] |
 | Placement | Never over the face or mouth; above platform UI zones (section 10) | [Consensus] |
@@ -218,3 +226,5 @@ that motivated them. Accepted changes update this file and the default style.
 | 2026-11-07 | Exposure judged on the face, not the whole frame | White Sands interview: bright sand behind a well-lit face was falsely flagged as overexposed |
 | 2026-11-07 | Repeated phrases after a conjunction, lists, spelled names and number corrections are not retakes | 10-min interview: parallel structure ("how to document it and how to preserve it") and a number list were wrongly detected as false starts |
 | 2026-11-07 | Self-corrections keep the added words ("human tracks, fresh human tracks" → drop only "human tracks,") | Same interview |
+| 2026-11-07 | Caption phrasing rules (function-word breaks, names, numbers, pronouns, mid-phrase pauses) | Interview captions read badly with "fill up to N words": "…during / the last…", "White / Sands", "older than they / have" |
+| 2026-11-07 | Loudness by linear gain + oversampled limiter, 1 dB encoder headroom | Dynamic loudness normalisation plus AAC encoding gave −0.5 dBTP (over the −1 dBTP limit) on the interview |

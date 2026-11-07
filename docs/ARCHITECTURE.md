@@ -64,8 +64,8 @@ Status legend used below: **[built]** exists and is tested; **[Pn]** is planned 
 | Path | Contents |
 |---|---|
 | `src/cutroom/` | Python package: `cli.py`, `ingest/`, `perception/`, `timeline/`, `tools/`, `render/`, `review/`, `export/`, `system/` |
-| `graphics/` | Motion-graphics package (Remotion/React, see §11) [P3] |
-| `styles/` | `default.style.yaml` (editing parameters [built]; design tokens [P2–3]) and `clients/<client>.style.yaml` |
+| `graphics/` | Remotion package (React): captions [built], motion graphics [P3]; `render.mjs` renders a composition to transparent PNGs |
+| `styles/` | `default.style.yaml` (editing parameters, caption rules and 4 caption styles [built]; graphics tokens [P3]) and `clients/<client>.style.yaml` |
 | `templates/` | JSON specs for reusable motion-graphics templates [P3] |
 | `assets/` | Fonts, SFX, LUTs, music: each with recorded licence and source. `samples/` holds the synthetic test clip. |
 | `prompts/` | The agent playbook: `00`–`04` [built]; `05`–`10` [P2–P7] |
@@ -190,11 +190,18 @@ of the edit), `versions`, `undo`, `checkout`, `snapshot`. Field reference: `docs
   offsets; the AAC encoder's 1024 priming samples are compensated by trimming the same amount
   from the (always silent) head of the audio. Moov atom at the front.
 - **Self-checks** in every render's JSON report: duration and frame count match the timeline,
-  no clicks at any join (linear-prediction error test), no edit lists, and a list of *flash
-  shots* (< 0.4 s) that the viewer would see as choppy.
-- **Graphics and animated captions** render as transparent overlay layers (e.g. ProRes 4444
-  or PNG sequences) composited by FFmpeg. FFmpeg stays the single master compositor; the
-  graphics engine only draws graphics.
+  no clicks at any join (linear-prediction error test), no edit lists, a list of *flash shots*
+  (< 0.4 s); with a voice chain, loudness within ±1 LU of target and true peak under the ceiling
+  (measured on the output file); with captions, every drawn caption pixel inside the safe zone
+  (measured on the overlay frames) and caption appearance within 80 ms of speech onsets.
+- **Captions and graphics** [captions built]: Python plans what to draw (props JSON); Remotion
+  (React, `graphics/`) draws transparent PNG frames in headless Chrome (`graphics/render.mjs`,
+  bundle cached by source hash); FFmpeg overlays them inside each video run, so no extra encode.
+  FFmpeg stays the single master compositor; the graphics engine only draws.
+- **Audio polish** [built]: the voice chain stored in the timeline (`audio.voice_chain`, planned
+  by `cutroom audio`) runs on the assembled edit audio before muxing: chain → linear gain to the
+  loudness target → 4× oversampled limiter → measured; the final file is measured again.
+- **Range renders** [built]: `render --range A-B` renders any slice (captions re-timed), for review.
 - **Encoders**: previews use a working hardware encoder if `doctor` found one
   (NVENC / VideoToolbox / QSV / AMF / VAAPI), otherwise libx264 `veryfast`. Finals use
   libx264 (`slow`, CRF ~16–18, High profile, yuv420p, BT.709) because it gives the best

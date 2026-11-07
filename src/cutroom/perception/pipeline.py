@@ -11,7 +11,7 @@ from cutroom.paths import rel_or_abs
 from cutroom.perception.audio import clipping, levels, measure_loudness, read_mono, silences
 from cutroom.perception.words import WordsFile, build_words, load_words
 
-WORDS_VERSION = 3   # bump when refinement changes so words.json is rebuilt
+WORDS_VERSION = 5   # bump when refinement changes so words.json is rebuilt
 
 
 def ensure_audio(job: Job, s: SourceRecord) -> None:

@@ -62,6 +62,19 @@ All permissive (MIT, BSD, Apache-2.0, ISC, MPL-2.0, PSF). Read from the installe
 | nvidia-cublas-cu12 | 12.9.2.10 | NVIDIA proprietary EULA (free to use and redistribute as wheels) |
 | nvidia-cudnn-cu12 | 9.28.1.4 | NVIDIA proprietary EULA (free to use) |
 
+## Node packages (graphics/, pinned by `graphics/package-lock.json`)
+
+| Package | Version | Licence |
+|---|---|---|
+| remotion, @remotion/bundler, @remotion/cli, @remotion/renderer, @remotion/layout-utils (+ their @remotion/* parts) | 4.0.541 | Remotion License: **free for you** (individual; see the Remotion section below) |
+| react, react-dom | 19.3.1 | MIT |
+| @fontsource/inter, @fontsource/montserrat (font files bundled, nothing fetched at render time) | 5.3.0 | SIL Open Font License 1.1 (fonts may be used in commercial videos) |
+| mediabunny and its encoders (inside @remotion/media) | 1.64.0 | MPL-2.0 (file-level copyleft: obligations only when modifying and redistributing its files; Cutroom does neither) |
+| All other transitive packages (≈ 230) | various | MIT, ISC, BSD-2/3-Clause, Apache-2.0, 0BSD, Unlicense, Python-2.0, CC-BY-4.0 (browser-support data), counted with a script over `node_modules` on 2026-11-07 |
+
+Chrome Headless Shell (downloaded by `npx remotion browser ensure`, or any Chrome given via
+`CUTROOM_BROWSER`): BSD-3-Clause (Chromium) plus bundled open-source components; free to use.
+
 ## Models (downloaded to `models/`, pinned revisions in `src/cutroom/perception/models.py`)
 
 | Model | Source | Licence |

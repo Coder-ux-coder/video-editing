@@ -69,7 +69,9 @@ def assemble(job: Job, source_ids: list[str] | None = None, *, style: str = "def
 
 
 def pack(tl: Timeline, track: str = "V1") -> None:
-    """Ripple: close all gaps on ``track`` by placing clips back to back in their current order."""
+    """Ripple: close all gaps on ``track`` by placing clips back to back in their current order.
+    Clip lengths are whole frames (as rendered), so timeline time equals rendered time."""
+    tl.attach_fps()
     t = 0.0
     for c in tl.track_clips(track):
         c.start = round(t, 6)
@@ -253,6 +255,7 @@ def split_at(tl: Timeline, source: str, t: float, track: str = "V1") -> None:
 
 def layout(tl: Timeline, ordered: list[Clip]) -> None:
     """Place clips back to back in exactly this order."""
+    tl.attach_fps()
     t = 0.0
     for c in ordered:
         c.start = round(t, 6)

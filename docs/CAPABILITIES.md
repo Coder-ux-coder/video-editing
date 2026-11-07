@@ -3,7 +3,7 @@
 An honest map of what Cutroom can do today, what it can do partially, and what it cannot
 do yet, with the plan for each gap. Updated at the end of every phase.
 
-Last updated: Phase 1 (perception and transcript-driven cutting).
+Last updated: Phase 2 (audio polish and captions).
 
 ## Can do (built and tested)
 
@@ -28,6 +28,11 @@ Last updated: Phase 1 (perception and transcript-driven cutting).
 | One-command first pass | `rough-cut` | assemble → silence → fillers → retakes → preview, one version per step |
 | Render | `render --mode preview|final` | Frame-exact, sample-accurate, click-free joins, YouTube-compliant MP4 (no edit lists), self-checks (duration, frames, clicks, flash shots) |
 | Escape hatch | `ffmpeg` | Any FFmpeg command inside the job, logged, sources protected |
+| Voice chain + loudness | `audio`, `loudness` | Stages decided from measurements (denoise only when needed); −14 LUFS by linear gain + oversampled limiter; verified on the output file |
+| Captions, 4 styles (Remotion) | `captions --style clean|bold-karaoke|word-highlight|minimal` | Sense-based phrasing, ≤ 2 lines, word-level karaoke/highlight, emphasis, off-face placement, automatic contrast scrim, long-form and Shorts safe zones |
+| Caption files | `export-captions` | `.srt` and `.vtt` in edit time |
+| Caption QA | `render` | Safe zone measured on drawn pixels; timing vs speech onsets; reading speed reported |
+| Range renders | `render --range A-B` | Review any section without a full render |
 | Plugins | `src/cutroom/tools/*.py` | Manifest + auto-registration + required tests |
 
 ## Partially
@@ -40,13 +45,14 @@ Last updated: Phase 1 (perception and transcript-driven cutting).
 | Footage-type detection | Heuristic; screen-recording detection untested on real screen captures | Test on real samples; add OCR text density |
 | Windows / macOS / NVIDIA GPU | Written to official docs, not yet run on real hardware | Your first `setup` + `doctor` run |
 | Jump-cut disguise | Mid-sentence jump cuts are left as plain cuts | Punch-ins (Phase 3) |
+| Reading speed | Captions follow speech, so fast talkers exceed 17 chars/s (reported, not hidden) | Optional condensed captions (agent-edited text) for very fast speech |
+| Caption render time | Remotion draws every frame: ~7 min for a 9-min 540p preview on 4 cores | Skip frames with no caption; render only changed frames (Phase 8 profiling) |
+| Audio stages | EQ is a gentle fixed curve, not matched to the voice; no hum removal, no music/speech separation | Measured EQ and hum notch (when a client needs it); speech/music segmentation with music (Phase 6) |
 
 ## Cannot do yet
 
 | Capability | Phase |
 |---|---|
-| Voice chain (denoise, EQ, compression, de-ess), loudness normalisation to −14 LUFS | 2 |
-| Animated captions (3 styles), SRT/VTT caption files | 2 |
 | Motion-graphics library (lower thirds, callouts, kinetic text, charts, transitions, CTAs) | 3 |
 | Automatic review loop with scorecard and autonomous fixes | 4 |
 | Shorts: moment selection, 9:16 reframing with face tracking, safe-zone captions | 5 |

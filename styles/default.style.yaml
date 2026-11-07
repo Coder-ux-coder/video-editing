@@ -56,3 +56,88 @@ output:
   preview:
     short_side: 540
     timecode: true
+
+captions:
+  # Which style `cutroom captions` uses when none is given.
+  default_style: clean
+  # Readability rules (docs/EDITING_STANDARDS.md §6). Phrases break at sentence ends, commas
+  # and pauses, never after an article/preposition; at most this many lines per caption.
+  max_lines: 2
+  max_chars_per_line: 42        # long-form; Shorts use max_chars_per_line_short
+  max_chars_per_line_short: 18
+  max_cps: 17                   # reading-speed target (characters/second); reported if exceeded
+  hard_max_cps: 20
+  min_duration: 1.0             # a caption stays at least this long (if the next one allows)
+  max_duration: 6.0
+  linger: 0.4                   # caption stays this long after its last word, if there is a pause
+  break_on_pause: 0.35          # a pause this long always starts a new caption
+  lead_frames: 0                # show captions this many frames before the first word
+  emphasis: true                # at most one emphasised word per caption (numbers, stressed words)
+  # Text must stay inside these boxes (fractions of the frame). Long-form keeps clear of the
+  # player's progress bar; Shorts keep clear of the right action column and the bottom UI.
+  safe_zones:
+    youtube_long: {left: 0.10, right: 0.90, top: 0.08, bottom: 0.90}
+    youtube_short: {left: 0.08, right: 0.81, top: 0.14, bottom: 0.70}
+  # Background brightness (WCAG relative luminance, 75th percentile of the caption area)
+  # above which a style without outline or box gets an automatic scrim for contrast.
+  scrim_threshold: 0.18
+  styles:
+    clean:
+      description: White sentence-case text on a soft dark box. Calm, corporate, documentary.
+      fontFamily: Inter
+      fontWeight: 600
+      fontSizeRel: 0.046          # x min(width, height): 50 px at 1080p
+      color: "#FFFFFF"
+      box: {color: "rgba(0,0,0,0.58)", radiusRel: 0.18, padXRel: 0.36, padYRel: 0.10, gap: 6}
+      entrance: fade
+      inFrames: 3
+      outFrames: 3
+      karaoke: false
+      max_words: 12
+      lines: 2
+    bold-karaoke:
+      description: Big uppercase words, thick outline, the spoken word lights up and pops. Energetic, Shorts-native.
+      fontFamily: Montserrat
+      fontWeight: 800
+      fontSizeRel: 0.066
+      uppercase: true
+      color: "#FFFFFF"
+      activeColor: "#FFD60A"
+      emphasisColor: "#FFD60A"
+      emphasisScale: 1.0
+      strokeWidthRel: 0.13         # x font size
+      strokeColor: "#000000"
+      shadow: "0 6px 18px rgba(0,0,0,0.45)"
+      karaoke: true
+      wordPop: 0.12
+      wordPopFrames: 6
+      entrance: pop
+      inFrames: 4
+      outFrames: 2
+      max_words: 4
+      lines: 1
+    word-highlight:
+      description: Clean bold text; a coloured highlight box moves under each spoken word.
+      fontFamily: Inter
+      fontWeight: 800
+      fontSizeRel: 0.054
+      color: "#FFFFFF"
+      activeBox: "#6D28D9"
+      shadow: "0 3px 10px rgba(0,0,0,0.55)"
+      karaoke: true
+      entrance: rise
+      inFrames: 5
+      outFrames: 3
+      max_words: 7
+      lines: 2
+    minimal:
+      description: Small, quiet text low in frame, no animation. For interviews where captions should recede.
+      fontFamily: Inter
+      fontWeight: 500
+      fontSizeRel: 0.038
+      color: "#F5F5F5"
+      shadow: "0 2px 6px rgba(0,0,0,0.7)"
+      entrance: none
+      karaoke: false
+      max_words: 14
+      lines: 2

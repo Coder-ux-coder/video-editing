@@ -7,7 +7,8 @@ Steps (each is checked first and skipped when already done):
       macOS: Homebrew; Linux: the system package manager, or a portable build).
   2. Python: create .venv with Python 3.12 and install the pinned requirements.lock
      (plus NVIDIA cuBLAS/cuDNN wheels when an NVIDIA GPU is present).
-  3. Node.js: check for 18+ (needed for motion graphics from Phase 3); offer to install.
+  3. Node.js 18+ and the pinned Remotion graphics package (graphics/, `npm ci`) plus the
+     Chrome Headless Shell it renders with (captions and motion graphics).
   4. Run `cutroom doctor --select-asr`: benchmarks speech models on this machine,
      downloads the chosen one, and runs an end-to-end test transcription.
 
@@ -275,7 +276,7 @@ def step_python() -> bool:
 
 
 def step_node() -> bool:
-    say("== 3/4 Node.js (motion graphics, needed from Phase 3) ==")
+    say("== 3/4 Node.js (captions and motion graphics) ==")
     node = shutil.which("node")
     if node:
         out = capture([node, "--version"]).strip()
@@ -289,7 +290,34 @@ def step_node() -> bool:
                     "--accept-package-agreements"], check=False).returncode == 0
     if SYSTEM == "Darwin" and shutil.which("brew") and ask("Install Node.js with Homebrew?"):
         return run(["brew", "install", "node"], check=False).returncode == 0
-    warn("Install Node.js LTS (free) from https://nodejs.org when you reach Phase 3. Not needed yet.")
+    warn("Install Node.js LTS (free) from https://nodejs.org: captions and graphics need it.")
+    return False
+
+
+# --------------------------------------------------------------------------- graphics (Remotion)
+
+
+def step_graphics() -> bool:
+    """Install the pinned Remotion package (graphics/package-lock.json) and its Chrome build."""
+    say("== Graphics package (Remotion: captions and motion graphics) ==")
+    npm = shutil.which("npm")
+    if not npm:
+        warn("npm not found: install Node.js LTS, then re-run setup (captions need it).")
+        return False
+    g = ROOT / "graphics"
+    run([npm, "ci", "--no-audit", "--no-fund"], cwd=g, check=False)
+    if not (g / "node_modules" / "@remotion" / "renderer").is_dir() and not ARGS.dry_run:
+        warn("`npm ci` in graphics/ failed; see the messages above.")
+        return False
+    npx = shutil.which("npx") or npm
+    if os.environ.get("CUTROOM_BROWSER"):
+        say(f"Using CUTROOM_BROWSER={os.environ['CUTROOM_BROWSER']} for rendering")
+    else:
+        # Remotion renders in Chrome Headless Shell; this downloads the matching build once.
+        r = run([npx, "remotion", "browser", "ensure"], cwd=g, check=False)
+        if r.returncode != 0:
+            warn("Could not download Chrome Headless Shell for Remotion. Set CUTROOM_BROWSER to an installed "
+                 "Chrome/Chromium headless-shell executable, or re-run setup with internet access.")
     return True
 
 
@@ -323,6 +351,7 @@ def main() -> int:
     ok &= step_python()
     if not ARGS.skip_node:
         ok &= step_node()
+        ok &= step_graphics()
     if ok and not ARGS.skip_doctor:
         ok &= step_doctor()
     activate = r".venv\Scripts\activate" if SYSTEM == "Windows" else "source .venv/bin/activate"

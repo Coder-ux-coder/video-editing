@@ -234,3 +234,16 @@ def test_cut_moves_onto_nearby_camera_change():
     assert snapped.src_out == pytest.approx(shot) and snapped.src_out <= then.start - 0.02
     far = next(r for r in plan_silence("S01", wf, kept(wf), ED, shots=[plain.src_out + 2.0]) if r.kind == "silence")
     assert far.src_out == plain.src_out   # too far: untouched
+
+
+def test_refinement_finds_a_pause_whisper_did_not_report():
+    """Whisper says the words touch (raw gap 0), but the audio has a 0.3 s pause between them."""
+    dur = 4.0
+    env = np.full(int(dur / ENV_HOP), -60.0, np.float32)
+    for a, b in ((1.0, 2.0), (2.3, 3.0)):
+        env[int(a / ENV_HOP): int(b / ENV_HOP)] = -20.0
+    raw = [{"text": "Sands", "start": 1.0, "end": 2.05, "prob": 0.9, "segment": 0},
+           {"text": "during", "start": 2.05, "end": 3.0, "prob": 0.9, "segment": 0}]
+    words, _ = refine_words(raw, env, -45.0, dur)
+    assert words[0]["end"] == pytest.approx(2.0, abs=0.02)
+    assert words[1]["start"] == pytest.approx(2.3, abs=0.02)

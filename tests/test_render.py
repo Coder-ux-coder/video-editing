@@ -108,3 +108,19 @@ def test_click_detector_finds_hard_joins_and_fades_remove_them(coded_job, tmp_pa
     assert detect_clicks(hard, joins), "a hard cut through a tone should be detected as a click"
     joins = render_audio(job, tl, segs, soft, join_fade=0.008)
     assert not detect_clicks(soft, joins), "8 ms fades should remove the click"
+
+
+def test_timeline_time_equals_rendered_time_after_many_cuts():
+    """Clip lengths are frame-rounded at render time; the timeline must lay clips out the same
+    way, or captions/graphics drift against the picture (found: 142 ms after 98 clips)."""
+    from test_timeline import make_tl
+
+    from cutroom.render.engine import plan_segments
+
+    tl = make_tl(300.0)
+    tl.meta.fps = 29.97
+    rs = [Removal("S01", 1.013 + 2.7 * k, 1.013 + 2.7 * k + 0.517, "silence", "x") for k in range(100)]
+    remove_ranges(tl, rs, tool="t", version=2, min_clip=0.05)
+    segs = {s.clip_id: s.out_frame / tl.meta.fps for s in plan_segments(tl)}
+    assert max(abs(c.start - segs[c.id]) for c in tl.track_clips()) < 1e-6
+    assert abs(tl.duration - sum(s.frames for s in plan_segments(tl)) / tl.meta.fps) < 1e-6

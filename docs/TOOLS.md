@@ -15,6 +15,8 @@ Commands provided by modules in `src/cutroom/tools/` (see `registry.py`).
 | `analyze` | analysis | Run all perception on a job and write analysis/summary.md. | no | `tests/test_analysis.py` |
 | `frames` | analysis | Labelled frame grid at chosen times: visual evidence on demand. | no | `tests/test_analysis.py` |
 | `topics` | analysis | Prepare or check the topic-map task (agent-in-the-loop). | no | `tests/test_analysis.py` |
+| `audio` | audio | Plan the voice chain and loudness target from the audio analysis. | yes | `tests/test_audio.py` |
+| `loudness` | audio | Measure integrated loudness, LRA and true peak of a file. | no | `tests/test_audio.py` |
 | `cut` | cutting | Remove a range or whole sentences by hand, refusing mid-word cuts. | yes | `tests/test_cutting.py` |
 | `detect-retakes` | cutting | Find stumbles, false starts and repeated sentences; optionally cut them. | yes | `tests/test_cutting.py` |
 | `move` | cutting | Reorder: move sentences (or a source range) to another point in the edit. | yes | `tests/test_cutting.py` |
@@ -22,6 +24,8 @@ Commands provided by modules in `src/cutroom/tools/` (see `registry.py`).
 | `remove-silence` | cutting | Shorten long pauses and trim head/tail, keeping natural rhythm. | yes | `tests/test_cutting.py` |
 | `restore` | cutting | Put a previously cut range back (by cut id). | yes | `tests/test_cutting.py` |
 | `rough-cut` | cutting | Standard first pass: assemble → silence → fillers → retakes → preview. | yes | `tests/test_cutting.py`, `tests/test_render.py` |
+| `captions` | graphics | Plan captions (phrases, timing, emphasis, placement) in a caption style. | yes | `tests/test_captions.py` |
+| `export-captions` | graphics | Write .srt and .vtt caption files for a timeline version. | no | `tests/test_captions.py` |
 | `render` | render | Render a timeline version (fast preview or full-quality final). | no | `tests/test_render.py` |
 | `assemble` | timeline | Create the first timeline: every main source, whole, in order. | yes | `tests/test_timeline.py` |
 | `checkout` | timeline | Set HEAD to any version (later edits branch from it). | no | `tests/test_timeline.py` |
@@ -57,6 +61,36 @@ Parameters:
 - `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
 - `--source`, `-s`: Source id(s), e.g. S01. Default: all.
 - `--style`: Style name (styles/<name>.style.yaml). (default: default)
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom audio`
+
+Decide the voice chain (high-pass, denoise only if needed, gentle EQ, compression set
+from the measured speech level, de-essing) and the loudness target, with a reason for each
+stage. Renders then apply it and verify loudness and true peak on the output file.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--target-lufs`: Integrated loudness target (default from style: -14).
+- `--denoise`, `--no-denoise`: Force denoise on/off (default: decided from the noise measurement).
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom captions`
+
+Plan captions from the refined word timings: phrases break at sentence ends, commas and
+pauses (never after "the", "of", ...), at most 2 lines, reading speed checked, at most one
+emphasised word, kept off faces and inside the platform safe zone, with an automatic scrim
+when the background is too bright for contrast. Saves a new timeline version.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--style`: clean, bold-karaoke, word-highlight or minimal (default from style file).
+- `--output`: Safe zone and line length to plan for. (default: youtube_long)
+- `--burn-in`, `--files-only`: Draw captions into the video, or only export caption files.
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
 - `--json`: Print machine-readable JSON on stdout.
 
 ## `cutroom checkout`
@@ -141,6 +175,17 @@ Parameters:
 - `--download`, `--no-download`: Download the chosen speech model if missing.
 - `--json`: Print machine-readable JSON on stdout.
 
+## `cutroom export-captions`
+
+Export the planned captions as SubRip (.srt) and WebVTT (.vtt), in edit time, ready to
+upload to YouTube. Always deliver these, even when captions are burned in.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--json`: Print machine-readable JSON on stdout.
+
 ## `cutroom ffmpeg`
 
 Passthrough for anything no tool covers yet. Runs in the job folder; relative paths are
@@ -189,6 +234,15 @@ List jobs.
 
 Parameters:
 
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom loudness`
+
+EBU R128 measurement (FFmpeg ebur128): integrated LUFS, loudness range, true peak.
+
+Parameters:
+
+- `PATH`: Media file (a render, a source...).
 - `--json`: Print machine-readable JSON on stdout.
 
 ## `cutroom machine`
@@ -306,6 +360,9 @@ Parameters:
 - `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
 - `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
 - `--mode`: preview: 540p from proxies with burned-in timecode; final: full resolution from sources. (default: preview)
+- `--captions`, `--no-captions`: Burn in the timeline's captions (if any).
+- `--audio-chain`, `--raw-audio`: Apply the timeline's voice chain and loudness (if any).
+- `--range`: Render only timeline seconds START-END, e.g. 30-55 (for reviewing a section).
 - `--json`: Print machine-readable JSON on stdout.
 
 ## `cutroom restore`

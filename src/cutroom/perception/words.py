@@ -23,6 +23,7 @@ from cutroom.perception.audio import (ENV_HOP, ENV_WIN, envelope_db, levels, per
 from cutroom.perception.textnorm import normalize
 
 GAP_FOR_REFINE = 0.08     # only edges next to a gap at least this long are re-placed
+HIDDEN_PAUSE = 0.12       # ...or next to an unreported pause this long (longer than a stop closure)
 MIN_WORD = 0.04
 VOICED_NCCF = 0.45
 DEFAULT_FILLERS = {"um", "umm", "uh", "uhh", "uhm", "er", "erm", "ah", "ahh", "hmm", "mm", "mhm"}
@@ -162,6 +163,18 @@ def refine_words(raw: list[dict], env: np.ndarray, thr: float, duration: float) 
         tiny = (left and left["raw_end"] - left["raw_start"] < MIN_WORD) or \
                (right and right["raw_end"] - right["raw_start"] < MIN_WORD)
         if left and right and raw_gap < GAP_FOR_REFINE and not tiny:
+            # Whisper often reports no gap where there is a real pause (e.g. between sentences).
+            # Refine anyway if a pause long enough not to be a stop consonant sits at the boundary.
+            lo, hi = left["raw_start"] + MIN_WORD, right["raw_end"] - MIN_WORD
+            near_lo, near_hi = left["raw_end"] - 0.25, right["raw_start"] + 0.35
+            hidden = [(a, b) for a, b in sil
+                      if b - a >= HIDDEN_PAUSE and a >= lo and b <= hi and b > near_lo and a < near_hi]
+            if not hidden:
+                continue
+            # Whisper's edge is unreliable here (it saw no gap), so use the pause itself.
+            a, b = max(hidden, key=lambda r: r[1] - r[0])
+            set_edge(left, "end", a, "end_refined")
+            set_edge(right, "start", b, "start_refined")
             continue
         end_t = start_t = None
         if left:
