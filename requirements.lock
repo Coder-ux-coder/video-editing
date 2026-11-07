@@ -1,0 +1,40 @@
+annotated-doc==0.0.5      # via typer
+annotated-types==0.8.0    # via pydantic
+anyio==4.16.0 ; sys_platform != 'emscripten'  # via httpx2
+av==16.1.0                # via faster-whisper, cutroom (pyproject.toml)
+click==8.5.1              # via huggingface-hub
+colorama==0.4.6 ; sys_platform == 'win32'  # via pytest, tqdm, typer
+ctranslate2==4.8.5        # via faster-whisper
+faster-whisper==1.2.1     # via cutroom (pyproject.toml)
+filelock==4.2.9           # via huggingface-hub
+flatbuffers==25.12.19     # via onnxruntime
+fsspec==2026.9.0          # via huggingface-hub
+h11==0.16.0 ; sys_platform != 'emscripten'  # via httpcore2
+hf-xet==1.8.0 ; platform_machine == 'AMD64' or platform_machine == 'ARM64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'  # via huggingface-hub
+httpcore2==2.16.0 ; sys_platform != 'emscripten'  # via httpx2
+httpx2==2.16.0            # via huggingface-hub
+httpx2-jsfetch==1.0 ; sys_platform == 'emscripten'  # via httpx2
+huggingface-hub==2.4.0    # via faster-whisper, tokenizers
+idna==3.20                # via anyio, httpx2
+iniconfig==2.3.1          # via pytest
+markdown-it-py==4.2.0     # via rich
+mdurl==0.1.2              # via markdown-it-py
+numpy==2.5.4              # via ctranslate2, onnxruntime
+onnxruntime==1.31.1       # via faster-whisper
+packaging==26.3           # via huggingface-hub, onnxruntime, pytest
+pluggy==1.7.0             # via pytest
+protobuf==7.36.2          # via onnxruntime
+psutil==7.2.2             # via cutroom (pyproject.toml)
+pydantic==2.14.3          # via cutroom (pyproject.toml)
+pydantic-core==2.50.4     # via pydantic
+pygments==2.21.0          # via pytest, rich
+pytest==9.2.0             # via cutroom (pyproject.toml)
+pyyaml==6.0.3             # via ctranslate2, huggingface-hub, cutroom (pyproject.toml)
+rich==15.0.0              # via typer, cutroom (pyproject.toml)
+shellingham==1.5.4        # via typer
+tokenizers==0.23.3        # via faster-whisper
+tqdm==4.70.1              # via faster-whisper, huggingface-hub
+truststore==0.10.5 ; sys_platform != 'emscripten'  # via httpcore2, httpx2
+typer==0.28.0             # via cutroom (pyproject.toml)
+typing-extensions==4.16.0  # via anyio, httpx2, huggingface-hub, pydantic, pydantic-core, typing-inspection
+typing-inspection==0.4.5  # via pydantic

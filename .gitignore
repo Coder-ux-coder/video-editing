@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+build/
+dist/
+
+# Per-machine state (written by `cutroom doctor`)
+config/machine.json
+
+# Large or client data: never commit
+jobs/*
+!jobs/README.md
+models/
+tools/
+references/*
+!references/README.md
+
+# Node / Remotion
+node_modules/
+graphics/out/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

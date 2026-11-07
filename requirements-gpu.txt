@@ -1,0 +1,6 @@
+# NVIDIA runtime libraries for GPU transcription (faster-whisper / CTranslate2 4.x
+# needs cuBLAS 12 + cuDNN 9). Installed by setup only on machines with an NVIDIA GPU.
+# Free to use (NVIDIA proprietary EULA, redistributable as pip wheels).
+# 12.9.2.10 is the newest cuBLAS wheel that also ships for Windows.
+nvidia-cublas-cu12==12.9.2.10
+nvidia-cudnn-cu12==9.28.1.4

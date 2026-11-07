@@ -1,0 +1,9 @@
+{
+  "description": "13.5 s of natural speech with a real stumble ('this is, this is'), used by `cutroom doctor` to check that the chosen speech model keeps disfluencies.",
+  "source": "\"Your Weekly Address\", Vice-President Joe Biden, 4 January 2015, The White House. Excerpt 0:12.5-0:26.0. Retrieved from archive.org item witnde-Your_Weekly_Address_-_Vice-President_Joe_Biden_-_January_4_2015.",
+  "licence": "Public domain in the United States: a work of the US federal government (17 U.S.C. 105). Excerpt re-encoded to Opus by Cutroom.",
+  "reference_text": "Hello everyone, this is, this is Joe Biden. I want to wish you all Happy New Year. I know this is the time of year when we make resolutions to take care of our health, whether it's joining a gym or eating healthier.",
+  "reference_note": "Text where YouTube's captions and an independent verbatim Whisper pass agree. Not hand-verified, so word timings are not used from this sample.",
+  "stumble": {"phrase": "this is this is"},
+  "duration": 13.5
+}
