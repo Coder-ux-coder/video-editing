@@ -175,14 +175,17 @@ def prepare(job: Job, version: int | None = None) -> Path:
     atomic_write_text(pkg / "MANIFEST.json", json.dumps(manifest, indent=1, default=str) + "\n")
     atomic_write_text(pkg / "REPORT.md", report_md(job, tl, manifest, ev))
     atomic_write_text(pkg / "APPROVAL.md", approval_md(job, n, manifest))
-    sums = []
-    for p in sorted(pkg.rglob("*")):
-        if p.is_file() and p.name != "checksums.sha256":
-            sums.append(f"{_sha256(p)}  {p.relative_to(pkg).as_posix()}")
-    atomic_write_text(pkg / "checksums.sha256", "\n".join(sums) + "\n")
+    n_files = write_checksums(pkg)
     job.log.section("delivery prepared")
-    job.log.note(f"{pkg.relative_to(job.root)}: AWAITING APPROVAL ({len(sums)} files)")
+    job.log.note(f"{pkg.relative_to(job.root)}: AWAITING APPROVAL ({n_files} files)")
     return pkg
+
+
+def write_checksums(pkg: Path) -> int:
+    sums = [f"{_sha256(p)}  {p.relative_to(pkg).as_posix()}" for p in sorted(pkg.rglob("*"))
+            if p.is_file() and p.name != "checksums.sha256"]
+    atomic_write_text(pkg / "checksums.sha256", "\n".join(sums) + "\n")
+    return len(sums)
 
 
 def report_md(job: Job, tl, m: dict, ev: dict) -> str:
@@ -234,6 +237,7 @@ def approve(job: Job, package: str, by: str, notes: str = "") -> dict:
     atomic_write_text(pkg / "MANIFEST.json", json.dumps(m, indent=1, default=str) + "\n")
     atomic_write_text(pkg / "APPROVAL.md", f"# Approved\n\n{job.id} v{m['version']:03d} approved by {by} at "
                                           f"{m['approved']['at']}.\n" + (f"\n{notes}\n" if notes else ""))
+    write_checksums(pkg)                     # the manifest and APPROVAL.md changed
     job.log.section("approved")
     job.log.note(f"{package} approved by {by}")
     return m

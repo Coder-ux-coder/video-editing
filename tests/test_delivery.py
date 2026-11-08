@@ -185,3 +185,21 @@ def test_answered_questions_leave_the_open_list(cut_job):
     assert D.open_questions(cut_job) == ["Still open?"]
     assert D.answered_questions(cut_job) == ["Which figure? Answer: 8.",
                                              "Revision r01, note 1 (“Say Dr.”): Answer: leave it off."]
+
+
+def test_approval_keeps_the_package_checksums_valid(cut_job):
+    import hashlib
+
+    from cutroom import deliver as D
+
+    pkg = cut_job.root / "delivery" / "deliver-test_v001"
+    pkg.mkdir(parents=True)
+    (pkg / "video.mp4").write_bytes(b"not really a video")
+    (pkg / "MANIFEST.json").write_text(json.dumps({"version": 1, "status": "AWAITING APPROVAL"}))
+    (pkg / "APPROVAL.md").write_text("# Approval needed\n")
+    D.write_checksums(pkg)
+    D.approve(cut_job, "deliver-test_v001", "A Person", "watched in full")
+    for line in (pkg / "checksums.sha256").read_text().splitlines():
+        digest, name = line.split("  ", 1)
+        assert hashlib.sha256((pkg / name).read_bytes()).hexdigest() == digest, name
+    assert json.loads((pkg / "MANIFEST.json").read_text())["status"] == "APPROVED"
