@@ -244,3 +244,26 @@ def job_command_logged(job):
     from cutroom.cli_common import job_command
 
     return job_command(job, "validate")
+
+
+# --------------------------------------------------------------------------- child processes
+
+
+def test_an_interrupted_ffmpeg_never_outlives_the_command(monkeypatch, tmp_path):
+    """Ctrl-C (here: the progress callback raising) stops FFmpeg itself, so a resumed render
+    cannot race an orphan still writing the same part file."""
+    from cutroom.system import procs
+    from cutroom.system.ffmpeg import run_ffmpeg
+
+    started = []
+    real = procs.popen_group
+    monkeypatch.setattr(procs, "popen_group", lambda cmd, **kw: started.append(real(cmd, **kw)) or started[-1])
+
+    def interrupt(f):
+        if f > 0:
+            raise Boom("interrupted")
+
+    with pytest.raises(Boom):
+        run_ffmpeg(["-y", "-f", "lavfi", "-i", "testsrc2=s=1280x720:r=25:d=600", "-c:v", "libx264", "-preset", "slow",
+                    str(tmp_path / "long.mp4")], desc="long", duration=600.0, on_progress=interrupt)
+    assert started and started[0].poll() is not None            # FFmpeg is gone, not orphaned

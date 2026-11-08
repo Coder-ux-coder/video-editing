@@ -257,8 +257,10 @@ def run_ffmpeg(
     ffmpeg = require_tool("ffmpeg")
     cmd = [str(ffmpeg), "-hide_banner", "-nostdin", "-progress", "pipe:1", "-nostats",
            *[str(a) for a in args]]
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd,
-                            text=True, encoding="utf-8", errors="replace")
+    from cutroom.system.procs import popen_group, stop_tree
+
+    proc = popen_group(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd,
+                       text=True, encoding="utf-8", errors="replace")
     stderr_lines: deque[str] = deque(maxlen=4000)
 
     def drain() -> None:
@@ -269,19 +271,22 @@ def run_ffmpeg(
     t = threading.Thread(target=drain, daemon=True)
     t.start()
     assert proc.stdout is not None
-    for line in proc.stdout:
-        if on_progress and duration and line.startswith("out_time_us="):
-            try:
-                us = int(line.split("=", 1)[1])
-                on_progress(max(0.0, min(1.0, us / 1e6 / duration)))
-            except ValueError:
-                pass
     try:
+        for line in proc.stdout:
+            if on_progress and duration and line.startswith("out_time_us="):
+                try:
+                    us = int(line.split("=", 1)[1])
+                    on_progress(max(0.0, min(1.0, us / 1e6 / duration)))
+                except ValueError:
+                    pass
         proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
-        proc.kill()
+        stop_tree(proc)
         raise CutroomError(f"{desc}: FFmpeg timed out after {timeout}s.",
                            fix="The input may be very long or the machine overloaded; retry or raise the timeout.")
+    except BaseException:                                     # Ctrl-C, a failing progress callback
+        stop_tree(proc)
+        raise
     t.join(timeout=5)
     stderr = "".join(stderr_lines)
     if proc.returncode != 0:

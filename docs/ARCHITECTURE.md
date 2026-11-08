@@ -354,6 +354,9 @@ order, with which quality gates and when to stop and ask.
 - Resume after crash [built, P8]: analysis stages are idempotent and recorded in `job.json`;
   renders resume their own finished parts (§4.5); a batch file (`cutroom batch`) records each
   line's outcome next to the file and skips finished lines when run again.
+- Child processes (FFmpeg; Node and the Chrome it starts for Remotion) run in their own process
+  group; an interrupted or failed command kills the whole group, so nothing keeps writing a file
+  that a resumed command is about to rewrite.
 - Command log: every job command (any registered tool whose first argument is the job) is
   recorded in `logs/commands.jsonl` with status and seconds; `cutroom report` turns it, the
   render timings and the review into `logs/report.md` with the cost ($0) and network use.

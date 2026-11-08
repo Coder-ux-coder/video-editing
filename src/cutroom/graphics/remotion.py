@@ -75,21 +75,27 @@ def render_overlay(props: dict, out_dir: Path, *, composition: str = "Captions",
     b = browser_executable()
     if b:
         cmd += ["--browser", b]
-    proc = subprocess.Popen(cmd, cwd=g, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                            encoding="utf-8", errors="replace")
+    from cutroom.system.procs import popen_group, stop_tree
+
+    proc = popen_group(cmd, cwd=g, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                       encoding="utf-8", errors="replace")
     result: dict = {}
     assert proc.stdout is not None
-    for line in proc.stdout:
-        try:
-            msg = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if "progress" in msg and on_progress:
-            on_progress(float(msg["progress"]))
-        if msg.get("done") or msg.get("error"):
-            result = msg
-    stderr = proc.stderr.read() if proc.stderr else ""
-    proc.wait()
+    try:
+        for line in proc.stdout:
+            try:
+                msg = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if "progress" in msg and on_progress:
+                on_progress(float(msg["progress"]))
+            if msg.get("done") or msg.get("error"):
+                result = msg
+        stderr = proc.stderr.read() if proc.stderr else ""
+        proc.wait()
+    except BaseException:                                     # Ctrl-C: stop Node and its Chrome too
+        stop_tree(proc)
+        raise
     if proc.returncode != 0 or "error" in result:
         detail = (result.get("error") or stderr or "").strip()[-2000:]
         fix = "Check Node.js and `npm ci` in graphics/."

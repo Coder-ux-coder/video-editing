@@ -10,10 +10,10 @@ JOB=${CUTROOM_JOBS_DIR:-jobs}/$J
 OUT=${OUT:-$(mktemp -d)}
 HEAD=$($C versions "$J" --json | python3 -c "import json,sys;print(next(v['version'] for v in json.load(sys.stdin)['versions'] if v['head']))")
 TMP=$JOB/renders/$(printf ".tmp_v%03d_preview" "$HEAD")
-rm -f "$JOB/renders/$(printf "v%03d_preview" "$HEAD").json"
+rm -rf "$TMP"; rm -f "$JOB/renders/$(printf "v%03d_preview" "$HEAD").json"
 
-# 1. Start a full preview render; interrupt it (as Ctrl-C would) once the overlay is drawn and
-#    two video runs are encoded; run the same command again.
+# 1. Start a full preview render; interrupt it (as Ctrl-C would) once the audio, the overlay
+#    frames and the first video run are finished, 15 s into the next run; run the same command again.
 $C render "$J" --mode preview --json > "$OUT/first.json" 2> "$OUT/first.err" &
 PID=$!
 python3 - "$TMP" <<'EOF'
@@ -22,7 +22,8 @@ from pathlib import Path
 st = Path(sys.argv[1]) / "state.json"
 while True:
     try:
-        if len(json.loads(st.read_text()).get("runs_done", [])) >= 2:
+        if len(json.loads(st.read_text()).get("runs_done", [])) >= 1:
+            time.sleep(15)
             break
     except (OSError, ValueError):
         pass
