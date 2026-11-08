@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import functools
 import json
+import sys
 import math
 import subprocess
 import time
@@ -916,8 +917,10 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
         lap("mux")
     except BaseException:
         # Keep the finished work: the same command resumes (audio, overlay frames, encoded runs).
-        job.log.warn(f"render of v{tl.meta.version:03d} {mode}{suffix} interrupted; finished parts kept in "
-                     f"{scratch.relative_to(job.root)} — run the same command again to resume")
+        msg = (f"render of v{tl.meta.version:03d} {mode}{suffix} interrupted; finished parts kept in "
+               f"{scratch.relative_to(job.root)} — run the same command again to resume")
+        job.log.warn(msg)
+        print(msg[0].upper() + msg[1:] + ".", file=sys.stderr, flush=True)
         raise
     import shutil
 

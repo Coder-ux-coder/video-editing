@@ -27,7 +27,7 @@ def report(job_id: JobArg, as_json: JsonOpt = False) -> None:
     r, md = write_report(job)
     emit(as_json, r)
     if not as_json:
-        out.print(md)
+        out.print(md, markup=False, highlight=False)          # "[x]" is a checkbox, not markup
 
 
 @tool(ToolManifest("batch", "Run a file of cutroom commands one after another; re-running resumes.",

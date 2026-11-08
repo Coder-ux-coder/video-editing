@@ -493,3 +493,78 @@ questions), plus the acceptance run above.
 
 **Next: Phase 8** (hardening): resumable renders, stage timings, batch queue, a job report with
 cost and network use, a golden end-to-end test, CI, documentation.
+
+## Phase 8: Hardening (2026-11-08)
+
+**Built**
+
+- **Resumable renders.** A render keeps its finished work (edit audio and mix, pre-rendered b-roll,
+  overlay frames, each encoded video run) in its scratch folder with a `state.json` keyed to a hash
+  of the exact plan: the edit, the settings, the Cutroom version and the Remotion sources. If it
+  fails or is interrupted, the same command continues from there; any other plan starts clean.
+  The scratch folder is removed only after a successful mux.
+- **Stage timings** (`timings_s`) in every render report: audio, overlay, checks, b-roll, video, mux.
+- **Clean interrupts.** FFmpeg and Remotion (Node and its Chrome) run in their own process group
+  and are killed as a group when a command is interrupted or fails; SIGTERM (`kill`, a shutdown,
+  a task runner) is handled like Ctrl-C (exit code 130, message on stderr, warning in `log.md`).
+- **`batch`**: a text file of commands, one process per line; the outcome of each line is kept next
+  to the file, so running it again skips finished lines (keyed by the command, not its line
+  number); stops at the first failure unless `--keep-going`; `approve` is refused.
+- **`report`**: every logged command (the plugin registry now times every job command) with runs,
+  failures and time; render stages; the review verdict; cost ($0.00, no paid services); what came
+  from the network (pinned models, licensed assets with sources); client media uploaded: no.
+- **Golden end-to-end test** (`tests/test_golden.py`): the bundled synthetic clip from raw footage
+  to a package awaiting approval through the real CLI (one process per command, frozen transcript,
+  no speech model needed), including refusals (an unsourced number in a graphic, a number in the
+  title the video never says, delivery before the final render). The edit is pinned in
+  `tests/golden/doctor_pipeline.json` (steps, clips and cuts in frames, captions, graphic, every
+  render check, review verdict, package files), compared with one frame of tolerance.
+- **CI** (`.github/workflows/tests.yml`): GitHub's free runners, started by hand only.
+- **`thumbnails --at`** for footage without faces (the golden test found the face-only picker
+  could not make a thumbnail of a screen-like clip, and its error pointed to an option that did
+  not exist).
+- **Docs**: `docs/GUIDE.md` (how a person runs, approves and revises a job), README for the
+  finished system, CAPABILITIES, CHARTER 4.11, ARCHITECTURE (resume, command log, process groups,
+  diarization status).
+
+**Acceptance run** (the interview at v110; `scripts/acceptance/phase8_hardening.sh`)
+
+| Step | Result |
+|---|---|
+| Profile of a full 540p preview (8:31 edit, 4 cores) | 406 s: overlay drawing 238 s (59 %), video encode 85 s, audio 40 s, mux 24 s, b-roll 10 s, checks 6 s |
+| Interrupt | `kill` 15 s into the second (last) video run, after audio, b-roll, 15,314 overlay frames and the first run were done: exit 130, finished parts kept, warning in the log |
+| Resume (same command) | **104 s instead of ~400 s**: audio, b-roll and overlay reused (0.3 s), only the cut-off run re-encoded; all 10 self-checks pass (frames exact, loudness, true peak, clicks, captions safe and in sync, graphics off faces and in the safe area) |
+| Batch | validate, export, report: 3 ok; run again: all 3 skipped |
+| Job report | 1 h 49 min of logged commands for this job, almost all renders (46 runs; 6 failed: interrupted ones and failures while earlier phases were built); cost $0.00; 5 models and 6 assets listed with sources; client media uploaded: no |
+| Golden end-to-end | Raw clip → package awaiting approval through 23 CLI calls (3 of them refusals it must make) in ~85 s; matches `tests/golden/doctor_pipeline.json` |
+
+**Bugs found and fixed on the way**
+
+- Ctrl-C during an encode left FFmpeg running until its next progress write, racing a resumed
+  render for the same file → process groups, killed as a group.
+- `kill` (SIGTERM) ended Python without any cleanup → handled like Ctrl-C.
+- The first acceptance attempt could not interrupt the render: a script's background job ignores
+  SIGINT (POSIX), so it ran to completion; the script now sends SIGTERM.
+- The face-only thumbnail picker failed on footage without faces, and its error pointed to an
+  option that did not exist → `thumbnails --at`.
+- Most tools did not record their time → the plugin registry times every job command.
+- The report's `[x]` checkboxes were eaten as terminal markup → printed verbatim.
+
+**Tested**: 217 automated tests (203 fast + 14 slow), all passing, including resume after a crash
+between runs and in the middle of the overlay (output compared with a clean render), a changed
+plan never reusing parts, corrupt state discarded, FFmpeg stopped on interrupt, SIGTERM through
+the real CLI, batch resume and refusals, the job report, and the golden end-to-end run.
+
+**Known limits**
+
+- A hard kill of the Python process alone (`kill -9`) cannot stop its children; FFmpeg then stops
+  on its next progress write (its pipe is gone). A power cut stops everything, and the resume
+  redoes any part not recorded as finished.
+- Resume is per render; a batch resumes by skipping finished lines, not mid-line work of other
+  commands (analysis stages are already cached).
+- Overlay drawing dominates render time; frames with nothing on screen are still drawn.
+- Speaker diarization was not built (CHARTER 4.11).
+- Windows, macOS and NVIDIA GPUs remain untested on real hardware; CI covers Linux when started.
+
+**Next**: none scheduled. The interview's delivery package awaits a person's approval with three
+open questions; candidates for later work are in CAPABILITIES ("Partially", "Cannot do yet").

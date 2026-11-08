@@ -82,7 +82,7 @@ Last updated: Phase 8 (hardening: resumable renders, batch queue, job report, go
 | Footage-type detection | Heuristic; screen-recording detection untested on real screen captures | Test on real samples; add OCR text density |
 | Windows / macOS / NVIDIA GPU | Written to official docs, not yet run on real hardware | Your first `setup` + `doctor` run |
 | Reading speed | Captions follow speech, so fast talkers exceed 17 chars/s (reported, not hidden) | Optional condensed captions (agent-edited text) for very fast speech |
-| Caption render time | Remotion draws every frame: ~7 min for a 9-min 540p preview, ~18 min for the 1080p final, on 4 cores (stage timings now in every render report) | Skip frames with nothing on screen; reuse unchanged frames between versions |
+| Caption and graphics render time | Remotion draws every frame. Profile of the 8.5-min interview preview (540p, 4 cores, 406 s): overlay 238 s (59 %), video 85 s, audio 40 s, mux 24 s; the 1080p final takes ~18 min. An interrupted render resumes in a fraction of that (104 s here) | Skip frames with nothing on screen; reuse unchanged overlay frames between versions |
 | Graphics size estimate | Placement uses a size hint per template; long text can be wider than estimated (the render check then fails and says so) | Measure text with the theme fonts before placing |
 | J/L cuts | Audio and picture are cut together; a flash shot that holds a word cannot be fixed without one | Separate audio/picture edges per join |
 | Shorts with several speakers | Two-shots use the fill layout; no active-speaker switching | Needs diarization (not built) |

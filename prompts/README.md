@@ -6,7 +6,7 @@ inputs, procedure (exact `cutroom` commands), decision rules, outputs, failure h
 
 | File | Stage | Status |
 |---|---|---|
-| `00_orchestrator.md` | Master loop, gates, when to ask | Written (Phase 1) |
+| `00_orchestrator.md` | Master loop, gates, when to ask | Written (Phase 1; resume, report and batch added in Phase 8) |
 | `01_intake.md` | Brief, ingest, analyze, job plan | Written (Phase 1) |
 | `02_transcript_review.md` | Names, terms, sensitive content | Written (Phase 1) |
 | `03_story_and_cut_plan.md` | Topics, hook, structure, cut plan | Written (Phase 1) |
@@ -16,6 +16,6 @@ inputs, procedure (exact `cutroom` commands), decision rules, outputs, failure h
 | `07_broll_and_music.md` | B-roll, music, SFX, thumbnail | Written (Phase 6) |
 | `08_shorts.md` | Shorts | Written (Phase 5) |
 | `09_review_loop.md` | Automatic review and fixes | Written (Phase 4) |
-| `10_delivery.md` | Delivery package and revisions | Written (Phase 7) |
+| `10_delivery.md` | Delivery package, open questions, revisions | Written (Phase 7) |
 
 A playbook is written only once its commands exist and are tested, so it never refers to tools that do not exist.
