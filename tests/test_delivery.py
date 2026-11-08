@@ -170,3 +170,18 @@ def test_open_questions_reach_the_package_report(cut_job):
     md = D.report_md(cut_job, store.load(cut_job), m, {})
     assert md.index("## Open questions") < md.index("## What is in this package") and "\n3. Revision r01" in md
     assert "3 open question(s)" in D.approval_md(cut_job, 1, m)
+
+
+def test_answered_questions_leave_the_open_list(cut_job):
+    from cutroom import deliver as D
+
+    (cut_job.root / "questions.md").write_text("# Open questions\n\n1. Still open?\n\n# Answered\n\n"
+                                               "1. Which figure? Answer: 8.\n"
+                                               "2. Revision r01, note 1 (“Say Dr.”): Answer: leave it off.\n")
+    rd = cut_job.root / "review" / "revisions" / "r01"
+    rd.mkdir(parents=True)
+    (rd / "result.json").write_text(json.dumps({"notes": [
+        {"n": 1, "note": "Say Dr.", "response": "Question for you: please confirm the title.", "done": []}]}))
+    assert D.open_questions(cut_job) == ["Still open?"]
+    assert D.answered_questions(cut_job) == ["Which figure? Answer: 8.",
+                                             "Revision r01, note 1 (“Say Dr.”): Answer: leave it off."]

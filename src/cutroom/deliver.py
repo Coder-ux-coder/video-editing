@@ -84,26 +84,42 @@ def shorts_of(job: Job) -> list[Job]:
     return _derived_jobs(job)
 
 
-def open_questions(job: Job) -> list[str]:
-    """Questions a person must answer before (or with) approval: the agent's numbered list in
-    ``questions.md`` and every revision note answered with a question."""
+def _questions_md(job: Job) -> tuple[list[str], list[str]]:
+    """``questions.md``: numbered or bulleted items; items under a heading that says "Answered"
+    are answered (the person's answer written with them)."""
     import re
 
-    qs: list[str] = []
+    open_, answered = [], []
     qp = job.root / "questions.md"
-    if qp.is_file():
-        item = re.compile(r"^\s*(?:[-*]|\d+[.)])\s+")
-        for line in qp.read_text(encoding="utf-8").splitlines():
-            if item.match(line):
-                qs.append(item.sub("", line).strip())
-            elif line.strip() and not line.lstrip().startswith("#") and qs:
-                qs[-1] += " " + line.strip()                     # continuation of the item above
+    if not qp.is_file():
+        return open_, answered
+    item = re.compile(r"^\s*(?:[-*]|\d+[.)])\s+")
+    cur = open_
+    for line in qp.read_text(encoding="utf-8").splitlines():
+        if line.lstrip().startswith("#"):
+            cur = answered if "answered" in line.lower() else open_
+        elif item.match(line):
+            cur.append(item.sub("", line).strip())
+        elif line.strip() and cur:
+            cur[-1] += " " + line.strip()                         # continuation of the item above
+    return open_, answered
+
+
+def open_questions(job: Job) -> list[str]:
+    """Questions a person must answer before (or with) approval: the agent's list in
+    ``questions.md`` and every revision note answered with a question, unless answered since."""
+    qs, answered = _questions_md(job)
     rounds = job.root / "review" / "revisions"
     for res in sorted(rounds.glob("r*/result.json")) if rounds.is_dir() else []:
         for n in json.loads(res.read_text(encoding="utf-8"))["notes"]:
-            if n.get("response", "").lower().startswith("question"):
-                qs.append(f"Revision {res.parent.name}, note {n['n']} (“{n['note']}”): {n['response']}")
+            ref = f"Revision {res.parent.name}, note {n['n']}"
+            if n.get("response", "").lower().startswith("question") and not any(a.startswith(ref) for a in answered):
+                qs.append(f"{ref} (“{n['note']}”): {n['response']}")
     return qs
+
+
+def answered_questions(job: Job) -> list[str]:
+    return _questions_md(job)[1]
 
 
 def prepare(job: Job, version: int | None = None) -> Path:
@@ -152,7 +168,7 @@ def prepare(job: Job, version: int | None = None) -> Path:
                 "status": "AWAITING APPROVAL", "video": ev["final"]["size"], "duration_s": ev["final"]["duration_s"],
                 "loudness": ev["final"]["loudness"], "checks": ev["final"]["checks"],
                 "review": ev["review"]["scorecard"], "accepted_issues": ev["review"].get("accepted", []),
-                "open_questions": open_questions(job),
+                "open_questions": open_questions(job), "answered_questions": answered_questions(job),
                 "shorts": [{"job": sj.id, "version": sn, "duration_s": e2["final"]["duration_s"],
                             "title": e2["publish"].get("title")} for sj, sn, e2 in shorts],
                 "nle": {k: (v["path"] if isinstance(v, dict) else v) for k, v in nle.items()}}
@@ -177,6 +193,9 @@ def report_md(job: Job, tl, m: dict, ev: dict) -> str:
     if m.get("open_questions"):
         lines += ["## Open questions (please answer)", ""]
         lines += [f"{i}. {q}" for i, q in enumerate(m["open_questions"], 1)] + [""]
+    if m.get("answered_questions"):
+        lines += ["## Questions answered", ""]
+        lines += [f"{i}. {q}" for i, q in enumerate(m["answered_questions"], 1)] + [""]
     lines += ["## What is in this package", "",
              f"- `{job.id}.mp4`: {m['video']}, {m['duration_s']:.1f} s, {m['loudness']['integrated_lufs']} LUFS, "
              f"{m['loudness']['true_peak_dbtp']} dBTP", "- `thumbnail.jpg`, `title.txt`, `description.txt` (chapters and credits)",
