@@ -16,6 +16,7 @@ Commands provided by modules in `src/cutroom/tools/` (see `registry.py`).
 | `analyze-reference` | analysis | Learn pacing from a reference video into styles/<name>.style.yaml. | no | `tests/test_media.py` |
 | `fix-words` | analysis | Correct misheard words (names, terms) in the transcript, keeping their timing. | no | `tests/test_analysis.py` |
 | `frames` | analysis | Labelled frame grid at chosen times: visual evidence on demand. | no | `tests/test_analysis.py` |
+| `speakers` | analysis | Who speaks when: speaker per sentence (local pyannote community-1 model). | no | `tests/test_speakers.py` |
 | `topics` | analysis | Prepare or check the topic-map task (agent-in-the-loop). | no | `tests/test_analysis.py` |
 | `audio` | audio | Plan the voice chain and loudness target from the audio analysis. | yes | `tests/test_audio.py` |
 | `loudness` | audio | Measure integrated loudness, LRA and true peak of a file. | no | `tests/test_audio.py` |
@@ -272,6 +273,7 @@ Parameters:
 - `--from`: Start of the range to remove (s).
 - `--to`: End of the range to remove (s).
 - `--sentences`: Sentence numbers as in analysis/topics.task.md, e.g. 3 or 2-3. Leaves a natural pause.
+- `--speaker`: Cut every sentence of this speaker (id or name from `cutroom speakers`), e.g. the interviewer's questions.
 - `--source`: Source id: --from/--to are source times. Omit to use timeline times.
 - `--snap`, `--no-snap`: Move edges that fall inside words to the nearest word boundary.
 - `--force`, `--no-force`: Allow cutting inside a word (not recommended).
@@ -893,6 +895,24 @@ Parameters:
 
 - `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
 - `--message`, `-m`: What this checkpoint is.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom speakers`
+
+Runs on this machine (the model is downloaded once; pyannote's telemetry is switched off).
+Each sentence gets the speaker who talks most of its time; the voice with the most speech is
+the main speaker. Lists every other speaker's sentences, so an interviewer's questions can be
+named (--name) and cut (`cutroom cut <job> --speaker SPEAKER_00 --reason ...`).
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--source`, `-s`: Source id(s), e.g. S01. Default: all.
+- `--num-speakers`: Exact number of speakers, if known.
+- `--min-speakers`
+- `--max-speakers`
+- `--name`: Name a speaker: SPEAKER_00=Interviewer (repeat).
+- `--force`, `--no-force`: Run again even if speakers.json exists.
 - `--json`: Print machine-readable JSON on stdout.
 
 ## `cutroom status`

@@ -1,0 +1,15 @@
+# Optional: speaker detection (`cutroom speakers`), with pyannote.audio and CPU-only PyTorch.
+# Free (MIT / BSD / Apache-2.0). The model itself is downloaded once by `cutroom speakers` and is
+# gated on Hugging Face: a free account that accepted the conditions of
+# pyannote/speaker-diarization-community-1 and a read token (`hf auth login`). Cutroom switches
+# pyannote's usage telemetry off.
+#
+#   .venv/bin/pip install -r requirements-speakers.txt
+#   (with uv: uv pip install --python .venv/bin/python -r requirements-speakers.txt --index-strategy unsafe-best-match)
+#
+# With an NVIDIA GPU, drop the CPU index line and the +cpu suffixes to get CUDA builds (larger).
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.8.0+cpu
+torchaudio==2.8.0+cpu
+torchcodec==0.7.0
+pyannote.audio==4.0.7

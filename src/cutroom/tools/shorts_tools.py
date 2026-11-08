@@ -33,7 +33,9 @@ def _candidates(job: Job, version: str | None, count: int, min_s: float | None, 
     words = {s.id: words_for(job, s.id) for s in tl.sources}
     tp = job.root / "analysis" / "topics.json"
     topics = json.loads(tp.read_text(encoding="utf-8")).get("topics", []) if tp.is_file() else []
-    sents = edit_sentences(tl, words)
+    from cutroom.perception.speakers import speaker_maps
+
+    sents = edit_sentences(tl, words, speaker_maps(job, tl))
     cands = find_candidates(sents, topics, cfg, tl)
     return n, tl, sents, cands, pick(cands, count)
 

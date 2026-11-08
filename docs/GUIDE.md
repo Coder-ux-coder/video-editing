@@ -23,6 +23,12 @@ changed). Optional:
   numbers and claims come only from what is said in the footage, the brief or these documents.
 - **Music or images** you have a licence for: `cutroom asset-add` records the file with its licence.
 
+**Interviews and podcasts.** Telling speakers apart uses a free model that needs a one-time
+Hugging Face sign-in: create a free account, accept the conditions on
+huggingface.co/pyannote/speaker-diarization-community-1, create a read token, and run
+`hf auth login` on your machine (in a cloud session the token is saved in the environment's secure
+settings). After that it runs offline, and Cutroom keeps the library's usage reporting switched off.
+
 ## 2. When the agent stops to ask
 
 The agent works on its own and stops only at these points, with numbered questions and a

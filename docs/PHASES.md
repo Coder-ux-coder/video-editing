@@ -568,3 +568,31 @@ the real CLI, batch resume and refusals, the job report, and the golden end-to-e
 
 **Next**: none scheduled. The interview's delivery package awaits a person's approval with three
 open questions; candidates for later work are in CAPABILITIES ("Partially", "Cannot do yet").
+
+## After Phase 8: speaker detection (2026-11-08)
+
+Built once you created a Hugging Face account and accepted the conditions of the free, gated
+`pyannote/speaker-diarization-community-1` model (CC-BY-4.0). It runs on this machine; pyannote's
+usage telemetry, on by default and sending file durations and speaker counts to otel.pyannote.ai,
+is switched off by Cutroom (tested); its paid cloud option is never used.
+
+**Built**: `cutroom speakers` (speaker per sentence by majority of time; names with `--name`),
+`cut --speaker` (everything one voice says; never the main speaker; refuses when nothing is left),
+"another voice" lines in `cutroom show`, a review check for another voice left in the edit (minor:
+sometimes the answer needs the question), Shorts windows with another voice marked down.
+Optional install: `requirements-speakers.txt` (CPU-only PyTorch, 1.1 GB in the venv).
+
+**Measured**
+
+| Test | Result |
+|---|---|
+| Two synthetic voices, 7 alternating sentences, known boundaries | 7/7 sentences on the right voice, confidence 1.0 |
+| The 10-minute interview | 2 voices: Dan (106 sentences) and one other, sentence 3 only, "And what is your title and affiliation?": the off-mic interviewer. Raw model output also had 6 word-sized blips (0.03–0.4 s, e.g. "Well,") inside Dan's sentences; per-sentence assignment removes them all |
+| The delivered edit v110 | No other voice left (the question had been cut by hand in Phase 1) |
+| Speed | 8 min 11 s for 10 min 16 s of audio on 4 CPU cores (~0.8× real time) |
+
+**Tested**: 5 new tests (assignment and blips, telemetry off, naming, `cut --speaker` and the review
+check through the CLI, Shorts scoring; the two-voice dialogue is the slow one). 223 tests in all.
+
+**Known limits**: two-shot framing does not follow who is talking; overlapping speech is assigned to
+the louder voice only; real multi-person footage (podcasts, panels) is still untested.

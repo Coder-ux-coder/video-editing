@@ -145,6 +145,7 @@ def cut(job_id: JobArg,
         start: Annotated[Optional[float], typer.Option("--from", help="Start of the range to remove (s).")] = None,
         end: Annotated[Optional[float], typer.Option("--to", help="End of the range to remove (s).")] = None,
         sentences: Annotated[Optional[str], typer.Option(help="Sentence numbers as in analysis/topics.task.md, e.g. 3 or 2-3. Leaves a natural pause.")] = None,
+        speaker: Annotated[Optional[str], typer.Option(help="Cut every sentence of this speaker (id or name from `cutroom speakers`), e.g. the interviewer's questions.")] = None,
         source: Annotated[Optional[str], typer.Option(help="Source id: --from/--to are source times. Omit to use timeline times.")] = None,
         snap: Annotated[bool, typer.Option(help="Move edges that fall inside words to the nearest word boundary.")] = False,
         force: Annotated[bool, typer.Option(help="Allow cutting inside a word (not recommended).")] = False,
@@ -153,6 +154,33 @@ def cut(job_id: JobArg,
     and leaves a natural pause. With --from/--to, edges must fall between words (--snap fixes
     them, --force overrides)."""
     ctx = open_edit(job_id, version)
+    if speaker:
+        from cutroom.perception import speakers as SP
+
+        sid = _default_source(ctx, source)
+        doc = SP.load(ctx.job, sid)
+        if doc is None:
+            raise RefusedError(f"No speakers found for {sid} yet.", fix=f"Run `cutroom speakers {ctx.job.id}` first.")
+        ids = {k for k, v in doc.get("names", {}).items() if v == speaker} | {speaker}
+        if not ids & {sp["id"] for sp in doc["speakers"]}:
+            raise RefusedError(f"No speaker '{speaker}' in {sid}.", fix="See `cutroom speakers` for ids and names.")
+        if doc.get("main") in ids:
+            raise RefusedError(f"'{speaker}' is the main speaker of {sid}; cutting all of it would empty the edit.",
+                               fix="Cut sentences with --sentences instead.")
+        removals = []
+        kept = kept_ranges(ctx.tl, sid)
+        for x in doc["sentences"]:
+            left = sum(max(0.0, min(b, x["end"]) - max(a, x["start"])) for a, b in kept)
+            if x["speaker"] in ids and left >= 0.5 * (x["end"] - x["start"]):   # skip what is already cut
+                r = plan_sentence_cut(sid, ctx.words[sid], kept, ctx.ed, x["n"], x["n"],
+                                      reason, ctx.env(sid), ctx.shots(sid))
+                if r is not None:
+                    removals.append(r)
+        if not removals:
+            raise RefusedError(f"Nothing of '{speaker}' is left in the edit.", fix="Check `cutroom show`.")
+        report(apply_and_save(ctx, removals, tool="cut", title=f"cut {len(removals)} sentence(s) of {speaker} ({reason})",
+                              dry_run=dry_run), as_json)
+        return
     if sentences:
         sid = _default_source(ctx, source)
         a_i, b_i = _parse_span(sentences)

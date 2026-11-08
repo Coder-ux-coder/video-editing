@@ -137,7 +137,7 @@ job and absolute otherwise, so a job folder can move between machines and operat
 | Transcript | faster-whisper (CTranslate2) locally, word timestamps, Silero VAD, verbatim prompt to keep stumbles, hotwords from the client glossary. Model chosen per machine by benchmark. | **[built]** (glossary [P1]) |
 | Word-timing refinement | Word edges that border a pause are re-placed on the pause found in a 5 ms energy envelope (end = first silence after the word, start = last silence before it). Ground truth: 214/429 ms mean/max error → 17/70 ms. Forced alignment kept in reserve. | **[built]** |
 | Filler detection | Verbatim ASR (transcribed fillers) plus audible regions inside pauses with no word, classified voiced (likely um/uh, by pitch periodicity) or unvoiced (breath) | **[built]** |
-| Speakers | Multi-track recordings: one track per speaker (free and exact). Single track: speaker embeddings + clustering with a non-gated free model (e.g. sherpa-onnx), see §11 | Not built (deferred after Phase 8: no multi-speaker footage to validate an ungated model; CHARTER 4.11) |
+| Speakers | Multi-track recordings: one track per speaker (free and exact). Single track: speaker embeddings + clustering with a non-gated free model (e.g. sherpa-onnx), see §11 | [built] `cutroom speakers`: pyannote community-1 (gated, free, CC-BY-4.0) run locally with telemetry off; speaker per sentence by majority of time; used by `show`, `cut --speaker`, review and Shorts (CHARTER §5) |
 | Audio report | `ebur128` (LUFS, LRA, true peak), envelope-based noise floor, speech level, SNR, clipping runs, silences | **[built]**; per-speaker levels and speech/music segmentation [P2] |
 | Visual report | FFmpeg `scdet` shots; YuNet face detection via OpenCV (bounding box, mouth landmarks) on 1 fps samples; framing (headroom, centring, size); exposure judged on the face; sharpness; colour cast; contact sheets | **[built]**; OCR for screen recordings [P4/P5] |
 | Pacing map | Per-second words, speech time, energy; smoothed boring score; slowest stretches | **[built]** |
@@ -401,6 +401,6 @@ as the honest map of can / partially / cannot-yet.
 3. **Speaker diarization without gated models.** pyannote's models are free but require a
    HuggingFace account and accepting terms per model. Default plan: separate tracks when
    available, otherwise a non-gated free model; pyannote stays optional. **Status after
-   Phase 8: not built** (CHARTER 4.11): no multi-speaker test footage was available to
-   validate an ungated model, and an unvalidated speaker label would mislead the
-   cutting and Shorts tools more than no label.
+   Phase 8: not built** (CHARTER 4.11). **Then built (2026-11-08)** with pyannote's gated
+   community-1 model once you created the account and accepted its terms; validated on a
+   two-voice dialogue with known answers and on the interview's off-mic question.

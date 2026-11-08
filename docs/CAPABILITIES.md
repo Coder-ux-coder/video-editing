@@ -3,7 +3,7 @@
 An honest map of what Cutroom can do today, what it can do partially, and what it cannot
 do yet, with the plan for each gap. Updated at the end of every phase.
 
-Last updated: Phase 8 (hardening: resumable renders, batch queue, job report, golden end-to-end test, CI).
+Last updated: after Phase 8 (speaker detection added with your Hugging Face account).
 
 ## Can do (built and tested)
 
@@ -64,6 +64,7 @@ Last updated: Phase 8 (hardening: resumable renders, batch queue, job report, go
 | Orchestration guide | `next` | Every playbook stage done or not, and the next command |
 | Client styles | `client-style`, `style --client-style` | Template for brand colours, fonts, captions, music levels |
 | Accepting an issue | `review --accept CHECK@T --reason …` | Editor's judgement recorded in every later report |
+| Speaker detection | `speakers`, `cut --speaker`, `show`, `review`, `shorts-find` | Local pyannote community-1 model (telemetry off). Speaker per sentence by majority of time, so word-sized blips do not split sentences. Names (`--name SPEAKER_00=Interviewer`); `cut --speaker` removes everything one voice says (never the main speaker); `show` marks other voices; review flags another voice left in the edit (minor); Shorts that include another voice are marked down. Measured: 7/7 sentences of a two-voice dialogue; the interview's off-mic question found as a second speaker. about 0.8× real time on 4 CPU cores (8 min for the 10-min interview) |
 | Resumable renders | `render` (same command again) | An interrupted render keeps its finished audio, overlay frames and encoded runs, keyed to the exact plan (edit, settings, graphics code); a changed plan starts clean; frame-exact after resume (tested by crashing mid-overlay and between runs) |
 | Stage timings | `render` | Every render reports seconds per stage (audio, overlay, checks, b-roll, video, mux) |
 | Job report: time, cost, network | `report` | Every command's runs, failures and time; render stages; review verdict; cost ($0.00, no paid services); models and assets that came from the network; client media uploaded: never |
@@ -77,7 +78,6 @@ Last updated: Phase 8 (hardening: resumable renders, batch queue, job report, go
 | Capability | Gap | Plan |
 |---|---|---|
 | Flash shots where the source's own camera change falls mid-speech | `review --fix` trims word-free slivers onto the camera change or lengthens the shot into a neighbouring pause; a sliver that holds a word with no pause to borrow is left for a person | Move the join by a word (needs judgement) |
-| Speaker identification | Off-mic voices hinted by level (⟪quiet⟫); interviewer questions identified by the agent from content | Diarization was planned for Phase 8 and **not built**: the free models good enough to trust are gated (an account and accepted terms) or untested here; see CHARTER 4.11 |
 | Filler/stumble transcription | Whisper drops some; acoustic detection catches voiced sounds in pauses, not fillers fused into words | Measure on more real footage; optional second verbatim pass |
 | Footage-type detection | Heuristic; screen-recording detection untested on real screen captures | Test on real samples; add OCR text density |
 | Windows / macOS / NVIDIA GPU | Written to official docs, not yet run on real hardware | Your first `setup` + `doctor` run |
@@ -85,7 +85,7 @@ Last updated: Phase 8 (hardening: resumable renders, batch queue, job report, go
 | Caption and graphics render time | Remotion draws every frame. Profile of the 8.5-min interview preview (540p, 4 cores, 406 s): overlay 238 s (59 %), video 85 s, audio 40 s, mux 24 s; the 1080p final takes ~18 min. An interrupted render resumes in a fraction of that (104 s here) | Skip frames with nothing on screen; reuse unchanged overlay frames between versions |
 | Graphics size estimate | Placement uses a size hint per template; long text can be wider than estimated (the render check then fails and says so) | Measure text with the theme fonts before placing |
 | J/L cuts | Audio and picture are cut together; a flash shot that holds a word cannot be fixed without one | Separate audio/picture edges per join |
-| Shorts with several speakers | Two-shots use the fill layout; no active-speaker switching | Needs diarization (not built) |
+| Shorts with several speakers | Two-shots use the fill layout; windows with another voice are marked down; no active-speaker switching (framing does not follow who talks) | Link speaker turns to face tracks |
 | B-roll matching | Keyword match between sentences and asset tags; relevance is judged by the agent looking at the picture | Visual-semantic matching (local CLIP-style model) |
 | Music | Generated beds are simple pads; no free music source with machine-readable licences was reachable | Library music added by hand (`asset-add`) with its licence |
 | Crossfades | Transitions are overlays over a cut; true video crossfades (overlapping clips) are not rendered | Add when a client style asks for them |
@@ -97,5 +97,4 @@ Last updated: Phase 8 (hardening: resumable renders, batch queue, job report, go
 
 | Capability | Phase |
 |---|---|
-| Speaker diarization (who speaks when) | Deferred: see CHARTER 4.11 |
 | Speed ramps, stabilisation, colour matching, multicam sync, green screen, PiP, split screen, cursor-following zooms, sponsor segments, A/B thumbnails, J/L cuts | Not built; candidates for later work (each needs its own render support and tests) |

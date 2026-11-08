@@ -32,6 +32,7 @@ class TSentence:
     src_start: float
     src_end: float
     index: int | None = None   # sentence number in the source (topics numbering)
+    other_speaker: str | None = None   # set when someone other than the main speaker says it
 
 
 @dataclass
@@ -62,7 +63,7 @@ class Candidate:
                 "text": " ".join(s.text for s in self.sentences)}
 
 
-def edit_sentences(tl: Timeline, words: dict) -> list[TSentence]:
+def edit_sentences(tl: Timeline, words: dict, speakers: dict | None = None) -> list[TSentence]:
     """Kept sentences in natural speech order (source order), as Shorts are told: the long-form
     edit may have moved lines (a cold open) away from their context. ``start``/``end`` are source
     times; durations count only kept material."""
@@ -79,9 +80,11 @@ def edit_sentences(tl: Timeline, words: dict) -> list[TSentence]:
             inside = [w for w in sent if any(a <= (w.start + w.end) / 2 < b for a, b in kept)]
             if len(inside) < max(1, len(sent) // 2):
                 continue      # sentence (mostly) cut from the edit
+            spk_map, main = (speakers or {}).get(s.id, ({}, None))
+            spk = spk_map.get(k)
             out.append(TSentence(text=" ".join(w.text for w in inside), start=inside[0].start, end=inside[-1].end,
                                  words=len(inside), source=s.id, src_start=inside[0].start, src_end=inside[-1].end,
-                                 index=k))
+                                 index=k, other_speaker=spk if spk and main and spk != main else None))
     return out
 
 
@@ -171,6 +174,11 @@ def score_window(sents: list[TSentence], topics: list[dict], cfg: dict, kept: fl
     if wps < 1.8:
         parts["substance"] -= 0.5
         why.append(f"slow ({wps:.1f} words/s)")
+    # One voice: a Short that cuts to an off-camera question loses viewers who never heard it asked.
+    others = [x for x in sents if x.other_speaker]
+    if others:
+        parts["speakers"] = -2.0
+        why.append("another voice speaks in it (sentence " + ", ".join(str(x.index) for x in others) + ")")
     c.parts, c.reasons = parts, why
     c.score = sum(parts.values())
     return c

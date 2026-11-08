@@ -55,8 +55,11 @@ def show(job_id: JobArg, version: VersionOpt = None,
     elif format == "cuts":
         out.print(cut_list(tl), markup=False, highlight=False)
     else:
+        from cutroom.perception.speakers import load as load_speakers
+
         words = {s.id: words_for(job, s.id) for s in tl.sources}
-        out.print(outline(tl, words), markup=False, highlight=False)
+        spk = {s.id: d for s in tl.sources if (d := load_speakers(job, s.id))}
+        out.print(outline(tl, words, speakers=spk), markup=False, highlight=False)
 
 
 @tool(ToolManifest("validate", "Validate a timeline (schema, structure, word-boundary cuts).", "timeline",

@@ -32,6 +32,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest==9.2.0"]
+# Speaker detection; install with requirements-speakers.txt (CPU-only PyTorch index).
+speakers = ["pyannote.audio==4.0.7", "torch==2.8.0", "torchaudio==2.8.0", "torchcodec==0.7.0"]
 
 [project.scripts]
 cutroom = "cutroom.cli:main"

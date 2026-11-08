@@ -21,8 +21,13 @@ doubtful words, and flag sensitive content for the human.
 5. **Sensitive content.** Flag (do not cut on your own): medical, financial or legal advice; claims about
    identifiable people or companies; private data (addresses, phone numbers, faces of bystanders who did not consent);
    profanity (check the client's policy); off-the-record remarks; factual self-corrections.
-6. **Off-mic voices.** Interviewer questions and chatter: note them for the cut plan. Interviewer
-   questions are usually cut when the answer stands on its own.
+6. **Other voices.** With more than one voice (interview, podcast, panel, an off-mic question):
+   `cutroom speakers <job>` lists who says each sentence (the main voice is the one with the most
+   speech). Name them from what they say (`--name SPEAKER_00=Interviewer`); never guess a person's
+   name, use a role unless the footage or brief gives it. Interviewer questions are usually cut when
+   the answer stands on its own (`cutroom cut <job> --speaker Interviewer --reason "..."`, or
+   `--sentences N` for single ones); keep a question the answer needs. If speaker detection is not
+   installed, note the voices from content and level (⟪quiet⟫) instead.
 
 ## Decision rules
 - You may fix spelling/capitalisation in captions later; you may **not** change what was said.

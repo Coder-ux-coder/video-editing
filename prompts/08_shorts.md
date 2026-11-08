@@ -14,7 +14,8 @@ names), the style file `shorts.*`.
 1. **Find moments:** `cutroom shorts-find <job> --count 5`. It scores windows of whole
    sentences in natural speech order (the long edit may have moved lines) for a first line that
    stops the scroll, a clean ending, length (style `shorts.min_s`–`max_s`, default 20–58 s),
-   one topic, and substance, and lists its reasons in `analysis/shorts.json`.
+   one topic, and substance, and lists its reasons in `analysis/shorts.json`. With speakers detected,
+   a window that includes another voice is marked down ("another voice speaks in it").
 2. **Choose as an editor.** Read each pick's first and last line and its reasons, and the
    transcript around it (`analysis/topics.task.md`). Reject a pick that opens on a reference to
    something not shown ("That's…", "What does that say…"), ends on an open question, or stops

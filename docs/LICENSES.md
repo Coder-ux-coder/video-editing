@@ -63,6 +63,22 @@ All permissive (MIT, BSD, Apache-2.0, ISC, MPL-2.0, PSF). Read from the installe
 | nvidia-cublas-cu12 | 12.9.2.10 | NVIDIA proprietary EULA (free to use and redistribute as wheels) |
 | nvidia-cudnn-cu12 | 9.28.1.4 | NVIDIA proprietary EULA (free to use) |
 
+## Speaker detection (optional, `requirements-speakers.txt`)
+
+Installed only for `cutroom speakers`. All free for any use, including commercial client work.
+
+| Package | Version | Licence |
+|---|---|---|
+| pyannote.audio, pyannote.core / .database / .metrics / .pipeline | 4.0.7, 6.1.0 / 6.2.0 / 4.2.0 / 4.1.0 | MIT |
+| torch (CPU build) | 2.8.0 | BSD-3-Clause |
+| torchaudio (CPU build) | 2.8.0 | BSD-2-Clause |
+| torchcodec | 0.7.0 | BSD-3-Clause |
+| lightning / pytorch-lightning, torchmetrics, safetensors | 2.6.6, 1.9.0, 0.8.0 | Apache-2.0 |
+| asteroid-filterbanks, einops, torch-audiomentations, torch-pitch-shift, pytorch-metric-learning | 0.4.0, 0.8.2, 0.12.0, 1.2.5, 2.9.0 | MIT |
+| opentelemetry-api / -sdk / -exporter-otlp | 1.45.2 | Apache-2.0 (pyannote's telemetry; Cutroom switches it off, nothing is sent) |
+| pyannoteai-sdk | 0.4.0 | MIT (client for pyannote's paid cloud service; installed as a dependency, never called) |
+| matplotlib, scikit-learn, pandas, sympy, networkx, jinja2 | various | matplotlib licence (PSF-style), BSD-3-Clause, BSD |
+
 ## Node packages (graphics/, pinned by `graphics/package-lock.json`)
 
 | Package | Version | Licence |
@@ -85,6 +101,7 @@ Chrome Headless Shell (downloaded by `npx remotion browser ensure`, or any Chrom
 | large-v3-turbo CTranslate2 conversion | deepdml on HuggingFace | MIT |
 | Silero VAD (bundled inside faster-whisper) | Silero Team | MIT |
 | YuNet face detector `face_detection_yunet_2023mar.onnx` (pinned revision + SHA-256) | OpenCV Zoo, via huggingface.co/opencv/face_detection_yunet | MIT |
+| Speaker diarization pipeline `pyannote/speaker-diarization-community-1` (revision 3533c8cf, `src/cutroom/perception/speakers.py`) | pyannote (Hervé Bredin et al.), huggingface.co/pyannote/speaker-diarization-community-1 | CC-BY-4.0. Gated: downloading needs a free Hugging Face account that accepted its conditions (shares contact details with pyannote). Runs offline afterwards. Attribution: speaker labels are an analysis aid and are never shown in videos; if they ever are, credit "Speaker diarization: pyannote community-1 (CC BY 4.0)". |
 
 Transcripts produced by these models belong to you; the MIT licence puts no restriction on output.
 

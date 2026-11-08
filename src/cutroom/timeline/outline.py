@@ -73,7 +73,8 @@ def summary(tl: Timeline) -> dict:
             "graphics": len(tl.graphics), "markers": len(tl.markers)}
 
 
-def outline(tl: Timeline, words: dict[str, WordsFile | None], *, width: int = 110, show_cuts: bool = True) -> str:
+def outline(tl: Timeline, words: dict[str, WordsFile | None], *, width: int = 110, show_cuts: bool = True,
+            speakers: dict | None = None) -> str:
     """The edit as text: each clip with its timeline/source times and spoken words,
     and between clips the cuts that were made there, with their reasons."""
     s = summary(tl)
@@ -95,6 +96,12 @@ def outline(tl: Timeline, words: dict[str, WordsFile | None], *, width: int = 11
             head += " [locked]"
         lines.append(head)
         lines += textwrap.wrap(text, width=width, initial_indent="    ", subsequent_indent="    ")
+        doc = (speakers or {}).get(c.source)
+        if doc:
+            for x in doc["sentences"]:
+                if x["speaker"] != doc.get("main") and x["end"] > c.src_in and x["start"] < c.src_out:
+                    who = doc.get("names", {}).get(x["speaker"], x["speaker"])
+                    lines.append(f"    ◇ another voice: {who} says sentence {x['n']} “{x['text'][:70]}”")
         for g in tl.graphics:
             if c.start - 1e-6 <= g.start < c.end:
                 lines.append(f"    ▣ {g.template} {tc(g.start)}–{tc(g.end)} {g.params.get('text', '')}".rstrip())

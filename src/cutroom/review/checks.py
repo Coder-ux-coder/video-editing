@@ -605,8 +605,36 @@ def check_short(ri: ReviewInput) -> list[Issue]:
     return out
 
 
+def check_speakers(ri: ReviewInput) -> list[Issue]:
+    """Sentences by someone other than the main speaker that are still in the edit (an
+    interviewer's question, a crew member): often meant to go, sometimes the set-up an answer needs."""
+    import json
+
+    out: list[Issue] = []
+    for s in ri.tl.sources:
+        p = ri.job_root / "analysis" / s.id / "speakers.json"
+        if not p.is_file():
+            continue
+        doc = json.loads(p.read_text(encoding="utf-8"))
+        kept = kept_ranges(ri.tl, s.id)
+        clips = [c for c in ri.tl.track_clips() if c.source == s.id]
+        for x in doc["sentences"]:
+            if x["speaker"] == doc.get("main"):
+                continue
+            inside = sum(max(0.0, min(b, x["end"]) - max(a, x["start"])) for a, b in kept)
+            if inside < 0.5 * (x["end"] - x["start"]):
+                continue
+            who = doc.get("names", {}).get(x["speaker"], x["speaker"])
+            at = next((c.to_timeline(max(c.src_in, x["start"])) for c in clips if c.src_in < x["end"] and x["start"] < c.src_out), None)
+            out.append(Issue("structure.other_voice", "structure", "minor", "Another voice is in the edit",
+                             f"{who} (not the main speaker) says sentence {x['n']}: “{x['text'][:80]}”.", at=at,
+                             fix=f"cutroom cut <job> --sentences {x['n']} --reason \"{who}\" (or keep it if the answer needs it)",
+                             data={"speaker": x["speaker"], "sentence": x["n"]}))
+    return out
+
+
 ALL_CHECKS = (check_audio, check_cuts, check_captions, check_graphics, check_video, check_structure, check_short,
-              check_media)
+              check_media, check_speakers)
 
 
 def run_checks(ri: ReviewInput) -> list[Issue]:
