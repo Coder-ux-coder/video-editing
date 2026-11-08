@@ -23,14 +23,19 @@ The reviewed timeline (HEAD, ready for the human gate), its Shorts, the topic ma
    (playbook 08).
 5. **Interchange.** `cutroom export <job>` writes OTIO (Resolve), FCPXML 1.10 (Resolve, Final Cut)
    and a CMX3600 EDL (Premiere, Avid), each verified by reading it back; captions as SRT.
-6. **Package.** `cutroom deliver <job>` refuses until everything above holds, then assembles
+6. **Open questions.** Write `questions.md` in the job folder: one numbered question per item that
+   needs the person (a fact the speaker corrected, a title nobody confirmed, a count the brief left
+   blank), each with your recommended answer. Revision notes you answered with a question
+   ("Question for you: …") are collected automatically.
+7. **Package.** `cutroom deliver <job>` refuses until everything above holds, then assembles
    `delivery/<job>_vNNN/`: the video, captions (SRT/VTT), thumbnail, title and description, Shorts
    with their texts, NLE files, `REPORT.md` (checks, scorecard, accepted issues, licences),
-   `MANIFEST.json`, `checksums.sha256`, and `APPROVAL.md`. Status: AWAITING APPROVAL.
-7. **Stop and tell the person.** Summarise in plain language: what the video is, its length,
-   what was cut and why (versions), what you could not judge, the accepted issues, and where the
-   package is. Ask them to watch it. Do **not** run `cutroom approve`.
-8. **Revisions.** When notes come back: `cutroom revise <job> --notes notes.txt --seen vNNN`. Each
+   `MANIFEST.json`, `checksums.sha256`, and `APPROVAL.md`. Status: AWAITING APPROVAL. The open
+   questions head `REPORT.md` and are pointed to from `APPROVAL.md`.
+8. **Stop and tell the person.** Summarise in plain language: what the video is, its length,
+   what was cut and why (versions), what you could not judge, the accepted issues, the open
+   questions, and where the package is. Ask them to watch it. Do **not** run `cutroom approve`.
+9. **Revisions.** When notes come back: `cutroom revise <job> --notes notes.txt --seen vNNN`. Each
    note's times are mapped from the version they watched to the current edit, with what is said and
    on screen there (`review/revisions/rNN/task.md`). For every note write commands and/or a response
    in `plan.json`: do what is asked when it is clear and safe; ask when it needs facts you do not
@@ -55,5 +60,6 @@ The reviewed timeline (HEAD, ready for the human gate), its Shorts, the topic ma
 - [ ] `cutroom next` shows only approval left
 - [ ] Publishing text checked after the last edit
 - [ ] Final render and review clean (accepted issues explained)
+- [ ] Open questions in `questions.md`, numbered, each with a recommendation
 - [ ] Package prepared; person told what to watch; no self-approval
 - [ ] Revision notes each answered, with versions

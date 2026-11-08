@@ -432,3 +432,64 @@ thumbnail checks.
 - No J/L cuts; no colour matching between b-roll and the interview.
 
 **Next: Phase 7** (orchestrator, revisions, NLE export, delivery).
+
+## Phase 7: Orchestrator, revisions, NLE export, delivery (2026-11-08)
+
+**Built**
+
+- `export`: the edit for an NLE, each file read back and compared with the timeline before it is
+  reported: OTIO via OpenTimelineIO (Resolve), FCPXML 1.10 (Resolve, Final Cut), CMX3600 EDL
+  (Premiere, Avid), captions as SRT. Cuts on the renderer's frame grid; b-roll on V2, music and
+  effects on A2/A3 (OTIO, FCPXML); chapters and graphics as markers.
+- `publish`: a task with chapters proposed from the topic map and the brief's credit lines; `--check`
+  validates `publish.json` (title ≤ 100 characters, no all-caps hype, every number said in the
+  video, YouTube's chapter rules: first at 0:00, at least 3, each ≥ 10 s) and writes the chapters
+  into the timeline and `delivery/description.txt`.
+- `revise`: client notes (one per bullet or line) with their times mapped from the version the
+  client watched to the current edit, through the source, so cuts made since are accounted for;
+  what is said and on screen there; a per-note plan (commands and/or a response); `--apply` runs it
+  as ordinary versioned edits and writes a note → action → version report. `approve` and
+  `deliver` can never be part of a plan.
+- `deliver`: refuses until the final render, a clean review of it, the thumbnail and checked
+  publishing text exist for the long-form and every Short; then a package with the video, SRT/VTT,
+  thumbnail, title, description, Shorts with their texts, NLE files, `REPORT.md`, `MANIFEST.json`,
+  `checksums.sha256` and `APPROVAL.md`, status AWAITING APPROVAL. Open questions (`questions.md`,
+  and revision notes answered with a question) head the report. `approve` records a person's name;
+  the agent never runs it.
+- `next`: every playbook stage as done or not, with the next command. Playbook `10_delivery.md`;
+  the orchestrator (`00`) uses `next`, the approval gate and revision rounds.
+
+**Acceptance run** (the interview; `scripts/acceptance/phase7_delivery.sh`)
+
+| Step | Result |
+|---|---|
+| Revision r01 (notes on v103) | 5 notes: 3 done as versions v104–v108 (opening music −4 dB; footprints picture 3.6 → 5 s; two off-topic sentences cut), 1 kept as asked, 1 answered with a question ("Dr." is not in the brief or the footage, so it is not put on screen until confirmed). Note times mapped correctly through the cuts made since |
+| Captions, review | Re-planned after the cut (v109); review ready |
+| Publishing text | Title, description in the speaker's terms with the credit line, 11 chapters (v110) |
+| Final render v110 | 1920x1080, 8:31, all 10 self-checks pass (−14.2 LUFS, −1.8 dBTP, music 21 dB under speech, 7 graphics off faces, captions in the safe zone and in sync); 17 min 53 s on 4 cores |
+| Review of the final | Ready for the human gate: 0 blocker, 0 major, 0 minor, 2 polish (a 29 s stretch without a visual change; fast captions follow fast speech); the flash shot accepted with its reason. Contact sheets looked at: graphics and b-roll clear of the face |
+| NLE export | OTIO, FCPXML and EDL each 131 clips / 15,314 frames, verified on read-back |
+| Package | `delivery/accept-nps-interview_v110/`: video, captions, thumbnail, title, description, 5 Shorts with texts, NLE files, report, manifest, checksums; **AWAITING APPROVAL**, with 3 open questions (the speaker's 10,000 → 8,000 years correction, how many Shorts, "Dr.") |
+| `next` | Every stage done except "approval (a person)" |
+
+**Bugs found and fixed on the way**
+
+- A header line in the client's notes ("Notes on the cut you sent") was parsed as a note → when
+  any line is a bullet, only bullets are notes.
+- Open questions lived only in the job log and the revision report → `questions.md` and question
+  responses are collected into the package report and `APPROVAL.md`.
+
+**Tested**: 7 delivery tests (NLE round trips, publishing checks and chapters, revision mapping
+through later cuts, the delivery gate and approval, stage guide, client style scaffold, open
+questions), plus the acceptance run above.
+
+**Known limits**
+
+- FCPXML and EDL carry the cut and the b-roll; graphics and captions travel as markers and SRT,
+  not as editable titles (Remotion draws them).
+- A revision note without a timecode is mapped to nothing; the agent reads it against the whole edit.
+- Package files are hard links where the file system allows (copies otherwise); the person sends
+  the package, Cutroom uploads nothing.
+
+**Next: Phase 8** (hardening): resumable renders, stage timings, batch queue, a job report with
+cost and network use, a golden end-to-end test, CI, documentation.

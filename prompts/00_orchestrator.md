@@ -72,5 +72,6 @@ status message to the human at each gate.
 ## Checklist (end of every session)
 - [ ] `cutroom validate <job>` passes on HEAD
 - [ ] `log.md` explains every decision made this session
-- [ ] Open questions for the human are written down, numbered, with recommendations
+- [ ] Open questions for the human are written down in `questions.md`, numbered, with recommendations
+      (`cutroom deliver` puts them at the top of the package report)
 - [ ] Skipped stages are named with the reason

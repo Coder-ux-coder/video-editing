@@ -84,6 +84,28 @@ def shorts_of(job: Job) -> list[Job]:
     return _derived_jobs(job)
 
 
+def open_questions(job: Job) -> list[str]:
+    """Questions a person must answer before (or with) approval: the agent's numbered list in
+    ``questions.md`` and every revision note answered with a question."""
+    import re
+
+    qs: list[str] = []
+    qp = job.root / "questions.md"
+    if qp.is_file():
+        item = re.compile(r"^\s*(?:[-*]|\d+[.)])\s+")
+        for line in qp.read_text(encoding="utf-8").splitlines():
+            if item.match(line):
+                qs.append(item.sub("", line).strip())
+            elif line.strip() and not line.lstrip().startswith("#") and qs:
+                qs[-1] += " " + line.strip()                     # continuation of the item above
+    rounds = job.root / "review" / "revisions"
+    for res in sorted(rounds.glob("r*/result.json")) if rounds.is_dir() else []:
+        for n in json.loads(res.read_text(encoding="utf-8"))["notes"]:
+            if n.get("response", "").lower().startswith("question"):
+                qs.append(f"Revision {res.parent.name}, note {n['n']} (“{n['note']}”): {n['response']}")
+    return qs
+
+
 def prepare(job: Job, version: int | None = None) -> Path:
     n = version or store.head(job)
     problems, ev = readiness(job, n)
@@ -130,6 +152,7 @@ def prepare(job: Job, version: int | None = None) -> Path:
                 "status": "AWAITING APPROVAL", "video": ev["final"]["size"], "duration_s": ev["final"]["duration_s"],
                 "loudness": ev["final"]["loudness"], "checks": ev["final"]["checks"],
                 "review": ev["review"]["scorecard"], "accepted_issues": ev["review"].get("accepted", []),
+                "open_questions": open_questions(job),
                 "shorts": [{"job": sj.id, "version": sn, "duration_s": e2["final"]["duration_s"],
                             "title": e2["publish"].get("title")} for sj, sn, e2 in shorts],
                 "nle": {k: (v["path"] if isinstance(v, dict) else v) for k, v in nle.items()}}
@@ -150,8 +173,11 @@ def report_md(job: Job, tl, m: dict, ev: dict) -> str:
     from cutroom.publish import credits
 
     acc = "\n".join(f"- {a['title']} ({a['check']}): {a['accepted_because']}" for a in m["accepted_issues"]) or "- none"
-    lines = [f"# Delivery: {job.id} v{m['version']:03d}", "", f"Status: **{m['status']}**", "",
-             "## What is in this package", "",
+    lines = [f"# Delivery: {job.id} v{m['version']:03d}", "", f"Status: **{m['status']}**", ""]
+    if m.get("open_questions"):
+        lines += ["## Open questions (please answer)", ""]
+        lines += [f"{i}. {q}" for i, q in enumerate(m["open_questions"], 1)] + [""]
+    lines += ["## What is in this package", "",
              f"- `{job.id}.mp4`: {m['video']}, {m['duration_s']:.1f} s, {m['loudness']['integrated_lufs']} LUFS, "
              f"{m['loudness']['true_peak_dbtp']} dBTP", "- `thumbnail.jpg`, `title.txt`, `description.txt` (chapters and credits)",
              f"- `{job.id}.srt` / `.vtt` captions", "- `nle/`: OTIO (Resolve), FCPXML 1.10 (Resolve, Final Cut), EDL (Premiere/Avid), SRT",
@@ -169,7 +195,9 @@ def report_md(job: Job, tl, m: dict, ev: dict) -> str:
 
 
 def approval_md(job: Job, n: int, m: dict) -> str:
-    return (f"# Approval needed: {job.id} v{n:03d}\n\nWatch `{job.id}.mp4` and the Shorts in full, read `title.txt` and "
+    q = (f"**{len(m['open_questions'])} open question(s)** are listed at the top of `REPORT.md`: answer them "
+         f"with your approval or your notes.\n\n") if m.get("open_questions") else ""
+    return (f"# Approval needed: {job.id} v{n:03d}\n\n{q}Watch `{job.id}.mp4` and the Shorts in full, read `title.txt` and "
             f"`description.txt`, look at `thumbnail.jpg`. If it can go out:\n\n    cutroom approve {job.id} "
             f"--package {job.id}_v{n:03d} --by \"Your Name\"\n\nIf not, write your notes (one per line, with times as "
             f"you saw them) and give them to the editor: `cutroom revise {job.id} --notes notes.txt --seen v{n:03d}`.\n")

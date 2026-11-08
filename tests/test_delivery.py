@@ -147,3 +147,26 @@ def test_client_style_scaffold_loads(tmp_path, monkeypatch):
     assert st["graphics"]["theme"]["colors"]["primary"] == "#6D28D9" and st["captions"]["default_style"] == "clean"
     with pytest.raises(RefusedError):
         client_style("acme")
+
+
+def test_open_questions_reach_the_package_report(cut_job):
+    from cutroom import deliver as D
+
+    (cut_job.root / "questions.md").write_text("# Open questions\n\n1. Which figure is right,\n   10 or 8?\n"
+                                               "2. How many Shorts?\n")
+    rd = cut_job.root / "review" / "revisions" / "r01"
+    rd.mkdir(parents=True)
+    (rd / "result.json").write_text(json.dumps({"notes": [
+        {"n": 1, "note": "Say Dr.", "response": "Question for you: please confirm the title.", "done": []},
+        {"n": 2, "note": "Nice", "response": "Kept.", "done": []}]}))
+    qs = D.open_questions(cut_job)
+    assert qs[:2] == ["Which figure is right, 10 or 8?", "How many Shorts?"]
+    assert len(qs) == 3 and "Revision r01, note 1" in qs[2] and "confirm the title" in qs[2]
+    m = {"version": 1, "status": "AWAITING APPROVAL", "open_questions": qs, "video": "1920x1080", "duration_s": 7.0,
+         "loudness": {"integrated_lufs": -14, "true_peak_dbtp": -1.5}, "shorts": [], "checks": {},
+         "review": {"overall": 10, "categories": {}}, "accepted_issues": []}
+    from cutroom.timeline import store
+
+    md = D.report_md(cut_job, store.load(cut_job), m, {})
+    assert md.index("## Open questions") < md.index("## What is in this package") and "\n3. Revision r01" in md
+    assert "3 open question(s)" in D.approval_md(cut_job, 1, m)
