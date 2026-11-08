@@ -3,7 +3,7 @@
 An honest map of what Cutroom can do today, what it can do partially, and what it cannot
 do yet, with the plan for each gap. Updated at the end of every phase.
 
-Last updated: Phase 6 (b-roll, music, effects, thumbnails).
+Last updated: Phase 7 (delivery, revisions, NLE export).
 
 ## Can do (built and tested)
 
@@ -56,6 +56,13 @@ Last updated: Phase 6 (b-roll, music, effects, thumbnails).
 | Sound effects | `sfx` | Generated whoosh, riser, impact, pop, ding; on transitions or at moments |
 | Thumbnails | `thumbnails` | Candidates from the best face frames, title away from the face, 1280x720 < 2 MB, contrast and face checks, sourced numbers; `--pick` |
 | Style from a reference video | `analyze-reference` | Pauses and pacing measured into `styles/<name>.style.yaml` |
+| NLE export | `export` | OTIO (Resolve), FCPXML 1.10 (Resolve, Final Cut), CMX3600 EDL (Premiere/Avid), SRT; verified by reading back |
+| Publishing text and chapters | `publish` | Agent task + check (title, description, YouTube chapter rules, tags, hashtags, sourced numbers, credits); chapters into the timeline |
+| Client revisions | `revise` | Notes mapped from the watched version to the current edit with context; per-note plan; applied as versions; note-by-note report |
+| Delivery package | `deliver` | Video, captions, thumbnail, texts, Shorts, NLE files, report, manifest, checksums; refuses until ready; AWAITING APPROVAL |
+| Human approval gate | `approve` | Records a named person's approval; never run by the agent |
+| Orchestration guide | `next` | Every playbook stage done or not, and the next command |
+| Client styles | `client-style`, `style --client-style` | Template for brand colours, fonts, captions, music levels |
 | Accepting an issue | `review --accept CHECK@T --reason …` | Editor's judgement recorded in every later report |
 | Autonomous fix loop | `review --fix` | Up to 4 rounds of review → safe fixes (pauses, fillers, flash shots, punch-ins, graphics, captions, audio) → review; stops at the human gate. Seeded-defect test: 9/9 found and fixed in one fix round |
 
@@ -84,6 +91,5 @@ Last updated: Phase 6 (b-roll, music, effects, thumbnails).
 
 | Capability | Phase |
 |---|---|
-| Client styles, revision notes → timeline edits, OTIO/FCPXML export, delivery package | 7 |
 | Batch queue, crash resume, golden regression suite | 8 |
-| Speed ramps, stabilisation, colour matching, multicam sync, green screen, PiP, split screen, cursor-following zooms, sponsor segments, A/B thumbnails | Scheduled across Phases 2–7 |
+| Speed ramps, stabilisation, colour matching, multicam sync, green screen, PiP, split screen, cursor-following zooms, sponsor segments, A/B thumbnails, J/L cuts | Not scheduled in Phases 1–7; candidates after Phase 8 (each needs its own render support and tests) |

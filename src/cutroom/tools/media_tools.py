@@ -372,3 +372,24 @@ def thumbnails(job_id: JobArg, text: Annotated[str, typer.Option(help="2-5 words
     (outdir / "thumbnails.json").write_text(json.dumps(data, indent=1) + "\n", encoding="utf-8")
     ctx.job.log.note(f"thumbnails: {len(cands)} candidates for “{text}”")
     emit(as_json, data)
+
+
+@tool(ToolManifest("media-remove", "Remove a b-roll cutaway, music bed or sound effect by id.", "media",
+                   inputs=["timeline HEAD"], outputs=["timeline vN+1"], tests=TESTS, changes_timeline=True))
+def media_remove(job_id: JobArg, item_id: Annotated[str, typer.Argument(help="b0001, m0001 or fx0001.")],
+                 version: VersionOpt = None, as_json: JsonOpt = False) -> None:
+    """To change one, remove it and add it again with the new settings (the history keeps both)."""
+    from cutroom.tools._common import open_edit
+
+    ctx = open_edit(job_id, version, need_words=False)
+    tl = ctx.tl.model_copy(deep=True)
+    for lst in (tl.broll, tl.audio.music, tl.audio.sfx):
+        hit = next((x for x in lst if x.id == item_id), None)
+        if hit:
+            lst.remove(hit)
+            n = _save(ctx, tl, "media-remove", f"removed {item_id} ({hit.asset})")
+            emit(as_json, {"version": n, "removed": item_id})
+            if not as_json:
+                out.print(f"removed {item_id} → v{n:03d}")
+            return
+    raise RefusedError(f"No b-roll, music or effect '{item_id}'.", fix="See `cutroom show <job> --json`.")

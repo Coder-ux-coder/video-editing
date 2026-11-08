@@ -27,6 +27,12 @@ Commands provided by modules in `src/cutroom/tools/` (see `registry.py`).
 | `remove-silence` | cutting | Shorten long pauses and trim head/tail, keeping natural rhythm. | yes | `tests/test_cutting.py` |
 | `restore` | cutting | Put a previously cut range back (by cut id). | yes | `tests/test_cutting.py` |
 | `rough-cut` | cutting | Standard first pass: assemble → silence → fillers → retakes → preview. | yes | `tests/test_cutting.py`, `tests/test_render.py` |
+| `approve` | delivery | Record a person's approval of a delivery package (the human gate). | no | `tests/test_delivery.py` |
+| `deliver` | delivery | Assemble the delivery package for a version (marked AWAITING APPROVAL). | no | `tests/test_delivery.py` |
+| `export` | delivery | Export the edit for an NLE: OTIO (Resolve), FCPXML (Resolve/FCP), EDL (Premiere/Avid). | no | `tests/test_delivery.py` |
+| `next` | delivery | Where a job stands in the playbook, and the next command. | no | `tests/test_delivery.py` |
+| `publish` | delivery | Title, description, chapters and tags for the long-form video: task and check. | yes | `tests/test_delivery.py` |
+| `revise` | delivery | Client notes → a traceable revision round (prepare, then --apply the plan). | yes | `tests/test_delivery.py` |
 | `captions` | graphics | Plan captions (phrases, timing, emphasis, placement) in a caption style. | yes | `tests/test_captions.py` |
 | `export-captions` | graphics | Write .srt and .vtt caption files for a timeline version. | no | `tests/test_captions.py` |
 | `graphic-add` | graphics | Add a motion graphic from a template, fact-checked and placed off faces. | yes | `tests/test_graphics.py` |
@@ -42,6 +48,7 @@ Commands provided by modules in `src/cutroom/tools/` (see `registry.py`).
 | `assets` | media | List the licence-tracked asset library (b-roll, music, sound effects). | no | `tests/test_media.py` |
 | `broll-add` | media | Cut away to a library still or clip over the speaker (audio continues). | yes | `tests/test_media.py` |
 | `broll-suggest` | media | Match what is said to library stills/clips: where b-roll could illustrate. | no | `tests/test_media.py` |
+| `media-remove` | media | Remove a b-roll cutaway, music bed or sound effect by id. | yes | `tests/test_media.py` |
 | `music` | media | Put a music bed under part or all of the edit (generated or from the library). | yes | `tests/test_media.py` |
 | `sfx` | media | Add a sound effect at a moment, or on every overlay transition. | yes | `tests/test_media.py` |
 | `thumbnails` | media | Thumbnail candidates (1280x720): best face frames, title away from the face. | no | `tests/test_media.py` |
@@ -54,6 +61,7 @@ Commands provided by modules in `src/cutroom/tools/` (see `registry.py`).
 | `shorts-find` | shorts | Score self-contained moments in an edit as Short candidates. | no | `tests/test_shorts.py` |
 | `assemble` | timeline | Create the first timeline: every main source, whole, in order. | yes | `tests/test_timeline.py` |
 | `checkout` | timeline | Set HEAD to any version (later edits branch from it). | no | `tests/test_timeline.py` |
+| `client-style` | timeline | Create a client style file (brand colours, fonts, captions) from a template. | no | `tests/test_delivery.py` |
 | `diff` | timeline | Human-readable change summary between two timeline versions. | no | `tests/test_timeline.py` |
 | `show` | timeline | Print a timeline as an outline, cut list, summary or JSON. | no | `tests/test_timeline.py` |
 | `snapshot` | timeline | Save the current version again as a named checkpoint. | yes | `tests/test_timeline.py` |
@@ -90,6 +98,18 @@ Parameters:
 - `PATH`: Reference video (e.g. references/clip.mp4).
 - `--name`: Style name to write.
 - `--force`, `--no-force`: Replace an existing style of that name.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom approve`
+
+For the person who watched the package. An agent never runs this for its own work.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--package`: Package folder name in delivery/.
+- `--by`: The approver's name.
+- `--notes`: Optional notes. (default: )
 - `--json`: Print machine-readable JSON on stdout.
 
 ## `cutroom assemble`
@@ -211,6 +231,17 @@ Parameters:
 - `VERSION`: Version to make current, e.g. v002
 - `--json`: Print machine-readable JSON on stdout.
 
+## `cutroom client-style`
+
+Writes a commented template; fill it from the client's brand guide. Jobs created with
+`cutroom new <job> --client <name>` use it automatically.
+
+Parameters:
+
+- `NAME`: Client name (lower-case, e.g. acme).
+- `--from-style`: Note a learned style (e.g. from analyze-reference) to use with it.
+- `--json`: Print machine-readable JSON on stdout.
+
 ## `cutroom cut`
 
 Remove a range or whole sentences. With --sentences the cut covers exactly those sentences
@@ -229,6 +260,17 @@ Parameters:
 - `--force`, `--no-force`: Allow cutting inside a word (not recommended).
 - `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
 - `--dry-run`: Show what would change without saving a new version.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom deliver`
+
+Refuses unless everything is ready (final render checks, review without blockers/majors,
+publishing text, thumbnail, every Short). The package waits for a person's approval.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
 - `--json`: Print machine-readable JSON on stdout.
 
 ## `cutroom detect-retakes`
@@ -281,6 +323,19 @@ Parameters:
 - `--select-asr`: Benchmark speech models on this machine and pick the best that fits.
 - `--asr-model`: Force a speech model (see `cutroom models list`).
 - `--download`, `--no-download`: Download the chosen speech model if missing.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom export`
+
+Cuts on the renderer's frame grid; b-roll on V2, music and effects on A2/A3 (OTIO, FCPXML);
+chapters and graphics as markers; captions as SRT. Each file is read back and compared with the
+timeline before it is reported.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--formats`: Comma list: otio,fcpxml,edl. (default: otio,fcpxml,edl)
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
 - `--json`: Print machine-readable JSON on stdout.
 
 ## `cutroom export-captions`
@@ -452,6 +507,17 @@ Parameters:
 
 - `--json`: Print machine-readable JSON on stdout.
 
+## `cutroom media-remove`
+
+To change one, remove it and add it again with the new settings (the history keeps both).
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `ITEM_ID`: b0001, m0001 or fx0001.
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--json`: Print machine-readable JSON on stdout.
+
 ## `cutroom models list`
 
 List available speech models, their size, licence and download state.
@@ -517,6 +583,16 @@ Parameters:
 - `--title`: Working title.
 - `--json`: Print machine-readable JSON on stdout.
 
+## `cutroom next`
+
+Reads the job (sources, analysis, timeline history, reviews, renders, delivery) and lists
+each playbook stage as done or not, with the next command to run.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--json`: Print machine-readable JSON on stdout.
+
 ## `cutroom probe`
 
 Inspect a media file (streams, fps, VFR, HDR, rotation, duration) without ingesting it.
@@ -536,6 +612,18 @@ Parameters:
 - `--source`, `-s`: Source id(s), e.g. S01. Default: all.
 - `--short-side`: Proxy short side in pixels (default from machine profile, 540).
 - `--force`, `--no-force`: Rebuild even if up to date.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom publish`
+
+Writes publish.task.md (chapters proposed from the topic map, credits collected); with
+--check validates publish.json (title, numbers said, YouTube chapter rules, limits), writes the
+chapters into the timeline and delivery/description.txt.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--check`: Validate publish.json and apply it.
 - `--json`: Print machine-readable JSON on stdout.
 
 ## `cutroom punch-in`
@@ -632,6 +720,20 @@ Parameters:
 - `--no-render`: Checks that need no render only (fast).
 - `--accept`: Accept an issue after judgement: CHECK or CHECK@SECONDS.
 - `--reason`: Why it is acceptable (required with --accept).
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom revise`
+
+Prepare: maps each note's timecodes from the version the client watched to the current edit
+and shows what is said and on screen there; the agent writes commands or a response per note in
+plan.json. --apply runs them (each a version) and writes a note-by-note report.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--notes`: Text file with the client's notes (one per line).
+- `--seen`: Version the client watched (times are mapped from it).
+- `--apply`: Apply a filled plan, e.g. r01.
 - `--json`: Print machine-readable JSON on stdout.
 
 ## `cutroom rough-cut`

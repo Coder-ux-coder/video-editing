@@ -13,7 +13,7 @@ commands are your hands and eyes; `docs/EDITING_STANDARDS.md` is your taste.
 ## Before you start (every session)
 1. `cutroom doctor --quick` must pass. If it fails, follow the printed fixes; do not edit around a broken toolchain.
 2. Read `docs/EDITING_STANDARDS.md` sections 1–4 (and the sections for the current stage).
-3. `cutroom status <job>` and `cutroom versions <job>`: know where the job is. Resume; never restart work that exists.
+3. `cutroom next <job>` (every stage done or not, and the next command), `cutroom versions <job>`: know where the job is. Resume; never restart work that exists.
 
 ## Stages (in order)
 
@@ -29,7 +29,7 @@ commands are your hands and eyes; `docs/EDITING_STANDARDS.md` is your taste.
 | 8 | B-roll, music, sound effects, thumbnail | `07_broll_and_music.md` | now |
 | 9 | Review loop (render → checks → look at frames → fix, ≤ 4 rounds) | `09_review_loop.md` | now |
 | 10 | Shorts (find, create, frame 9:16, hook, captions, review, publishing text) | `08_shorts.md` | now |
-| 11 | Delivery package | `10_delivery.md` | Phase 7 |
+| 11 | Publishing text, final render, delivery package (human approval), revisions | `10_delivery.md` | now |
 
 Until a stage's tools exist, skip it and say so in the job log and the final summary. Never fake a stage.
 
@@ -40,7 +40,8 @@ Until a stage's tools exist, skip it and say so in the job log and the final sum
 
 ## Stop and ask the human when
 - **New client**: the cut plan needs approval before the rough cut is treated as final (gate a).
-- **Final render before delivery** (gate b).
+- **Final render before delivery** (gate b): `cutroom deliver` prepares the package AWAITING
+  APPROVAL; a person watches it and runs `cutroom approve`. Never run `approve` yourself.
 - **Anything that is not free** to install or use (gate c). Zero budget is absolute.
 - **Sensitive content** flagged in transcript review: medical/financial/legal claims, defamation risk, private data, profanity policy unclear, third parties named (gate d).
 - **Ambiguous brief**: target length, audience or must-keep content unclear and it changes the edit.
@@ -56,6 +57,8 @@ When you ask: one message, numbered questions, each with your recommended answer
 - Prefer commands over hand edits. If no command exists, use `cutroom ffmpeg` or write a new tool
   (with a manifest and a test) and add it to the library (self-extension rule).
 - Be honest in summaries: say what was verified, what was not, and what needs a human eye.
+- Client notes become a revision round (`cutroom revise`, playbook 10): every note is answered
+  (done, question, or declined with the reason) and traced to a version.
 
 ## Outputs
 A versioned timeline, renders, and (from Phase 7) a delivery package; a short plain-language

@@ -194,6 +194,15 @@ Conclusions:
 | Thumbnails: face frames scored, recomposed, checked on glyph pixels | Candidates from large, sharp, well-exposed faces spread over the video; reframed to put the face on a thirds line opposite the title; contrast measured against the background behind the glyphs (title rendered alone on black as the glyph mask; the first difference-based mask passed invisible text). |
 | `analyze-reference` measures, it does not guess | Pauses kept by the reference's editor and its shot lengths become style parameters, with the measurements in the file header; look, captions, music and colour are left to the agent's eye. |
 
+### 4.10 Phase 7 decisions
+
+| Decision | Why / evidence |
+|---|---|
+| OTIO through the official library; FCPXML 1.10 and EDL written directly | OpenTimelineIO 0.17's core ships only its native formats; the FCP XML and EDL adapters are separate plugins. FCPXML and CMX3600 are small, documented formats; writing them directly avoids two more dependencies. Every file is read back and compared with the timeline frame by frame (clips, source ranges, total) before it counts as written. |
+| Cutroom never approves its own work | `deliver` prepares a complete package marked AWAITING APPROVAL; `approve` records a named person. The CLI cannot know who types the command, so the rule is stated in the playbooks (00, 10) and the package explains what to watch. During this autonomous run nothing was approved. |
+| Revision notes are mapped through the source | A client's "8:06" refers to the version they watched; mapping through the source time finds the same words in the current edit even after later cuts. Every note must end with commands or an answer (question or declined with the reason); approval and delivery are refused inside a revision plan. |
+| Chapters are written after the last edit | Chapter times are positions in the edit; the publishing check validates them against the current length and YouTube's rules (first at 0:00, ≥ 3, each ≥ 10 s). |
+
 ## 5. Decisions you made
 
 | Date | Question | Your answer | Consequence |

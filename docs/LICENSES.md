@@ -53,6 +53,7 @@ All permissive (MIT, BSD, Apache-2.0, ISC, MPL-2.0, PSF). Read from the installe
 | soundfile | 0.14.0 | BSD-3-Clause (bundles libsndfile 1.2.2: LGPL-2.1, dynamically linked; no obligations for using it) |
 | cffi / pycparser | 2.1.1 / 3.12 | MIT / BSD-3-Clause |
 | opencv-python-headless | 5.0.0.93 | Apache-2.0 (OpenCV and the wheel's bundled libraries) |
+| opentimelineio | 0.17.0 | Apache-2.0 (Academy Software Foundation) |
 | pytest (development) | 9.2.0 | MIT |
 
 ### NVIDIA GPU libraries (`requirements-gpu.txt`, only installed on NVIDIA machines)

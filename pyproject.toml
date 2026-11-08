@@ -26,6 +26,8 @@ dependencies = [
     "soundfile==0.14.0",
     # Face detection (YuNet), sharpness and exposure measurement, contact sheets.
     "opencv-python-headless==5.0.0.93",
+    # Interchange with Resolve/Premiere/Final Cut (OTIO export, re-read to verify). Apache-2.0.
+    "opentimelineio==0.17.0",
 ]
 
 [project.optional-dependencies]

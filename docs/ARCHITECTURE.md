@@ -290,11 +290,23 @@ This keeps every judgement inspectable, reproducible (the answer is a file) and 
 The playbook in `prompts/` tells a future session exactly which commands to run, in which
 order, with which quality gates and when to stop and ask.
 
-### 4.9 Export [P7]
+### 4.9 Export, publishing, revisions, delivery [built]
 
-OpenTimelineIO (Apache-2.0) as the interchange model, with FCPXML (DaVinci Resolve, Final
-Cut), CMX 3600 EDL, and Premiere XML adapters, so a human can finish the edit in Resolve
-(free) or Premiere. Each adapter's licence and round-trip fidelity are checked before use.
+- **NLE export** (`export/nle.py`): OTIO via OpenTimelineIO 0.17 (Apache-2.0; V1, V2 b-roll, A1
+  dialogue, A2 music, A3 effects, markers for chapters and graphics with their parameters);
+  FCPXML 1.10 and CMX3600 EDL written directly (OTIO's FCP/EDL adapters are separate plugins).
+  All on the renderer's frame grid; each file is read back and compared with the timeline
+  (clips, source ranges, total frames) before it is reported. Premiere: the EDL (picture and
+  dialogue) or the OTIO via Resolve.
+- **Publishing** (`publish.py`): chapters proposed from the topic map; the agent writes
+  `publish.json`; the check enforces YouTube's chapter and length rules, sourced numbers and
+  credits; chapters become timeline markers; `delivery/description.txt`.
+- **Revisions** (`revise.py`): notes → times mapped from the watched version through the source
+  to the current edit, with context → the agent's plan (commands or responses per note) → applied
+  as versioned edits → note-by-note report.
+- **Delivery** (`deliver.py`): readiness check (final render checks, review, publishing text,
+  thumbnail, every Short), package with manifest, report and checksums, AWAITING APPROVAL until a
+  person runs `approve`. `cutroom next` reads a job and names the next stage.
 
 ## 5. Hardware strategy
 

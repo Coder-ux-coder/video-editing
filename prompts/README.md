@@ -16,6 +16,6 @@ inputs, procedure (exact `cutroom` commands), decision rules, outputs, failure h
 | `07_broll_and_music.md` | B-roll, music, SFX, thumbnail | Written (Phase 6) |
 | `08_shorts.md` | Shorts | Written (Phase 5) |
 | `09_review_loop.md` | Automatic review and fixes | Written (Phase 4) |
-| `10_delivery.md` | Delivery package and revisions | Phase 7 |
+| `10_delivery.md` | Delivery package and revisions | Written (Phase 7) |
 
 A playbook is written only once its commands exist and are tested, so it never refers to tools that do not exist.

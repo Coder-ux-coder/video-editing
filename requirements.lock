@@ -23,6 +23,7 @@ mdurl==0.1.2              # via markdown-it-py
 numpy==2.5.4              # via ctranslate2, onnxruntime, opencv-python-headless, soundfile
 onnxruntime==1.31.1       # via faster-whisper
 opencv-python-headless==5.0.0.93  # via cutroom (pyproject.toml)
+opentimelineio==0.17.0    # via cutroom (pyproject.toml)
 packaging==26.3           # via huggingface-hub, onnxruntime, pytest
 pluggy==1.7.0             # via pytest
 protobuf==7.36.2          # via onnxruntime

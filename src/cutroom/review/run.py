@@ -40,14 +40,16 @@ def _shots(job: Job, tl) -> dict:
     return out
 
 
-def existing_render(job: Job, version: int, mode: str = "preview") -> tuple[dict, Path] | None:
-    """A full render of this exact version (versions are immutable, so it can be reused)."""
-    js = job.root / "renders" / f"v{version:03d}_{mode}.json"
-    mp4 = js.with_suffix(".mp4")
-    if js.is_file() and mp4.is_file():
-        rep = json.loads(js.read_text(encoding="utf-8"))
-        if rep.get("version") == version and not rep.get("range"):
-            return rep, mp4
+def existing_render(job: Job, version: int, mode: str | None = None) -> tuple[dict, Path] | None:
+    """A full render of this exact version (versions are immutable, so it can be reused): the
+    final if there is one, else the preview."""
+    for m in ([mode] if mode else ["final", "preview"]):
+        js = job.root / "renders" / f"v{version:03d}_{m}.json"
+        mp4 = js.with_suffix(".mp4")
+        if js.is_file() and mp4.is_file():
+            rep = json.loads(js.read_text(encoding="utf-8"))
+            if rep.get("version") == version and not rep.get("range"):
+                return rep, mp4
     return None
 
 

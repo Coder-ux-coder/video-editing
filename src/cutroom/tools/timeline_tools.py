@@ -201,3 +201,50 @@ def style(job_id: JobArg,
         out.print(f"style {tl.meta.style}, client theme {tl.meta.client_style or 'none'} → v{n:03d}")
         for p in problems:
             out.print(f"[yellow]  ! theme contrast: {p}[/]")
+
+
+CLIENT_TEMPLATE = """# Client style: {name}. Deep-merged over styles/default.style.yaml (only list what differs).
+# Brand values come from the client's brand guide, never guessed. Check contrast after editing:
+# `cutroom style <job> --client-style {name}` warns when text or accent colours fail WCAG on panels.
+name: {name}
+{inherit}captions:
+  default_style: clean          # clean | bold-karaoke | word-highlight | minimal
+graphics:
+  theme:
+    colors:
+      primary: "#6D28D9"        # brand colour (bars, highlights)
+      accent: "#FFD60A"         # emphasis (numbers, active items)
+      text: "#FFFFFF"
+      surface: "rgba(12,12,18,0.84)"   # panels behind text
+    fonts: {{heading: Montserrat, body: Inter}}   # bundled: Inter, Montserrat (OFL)
+    weights: {{heading: 800, body: 500, label: 700}}
+    radius: 0.012
+    motion: {{enter_frames: 12, exit_frames: 8, stagger_frames: 4}}
+audio:
+  music: {{music_under_speech_db: 12.0, duck_db: 8.0}}
+"""
+
+
+@tool(ToolManifest("client-style", "Create a client style file (brand colours, fonts, captions) from a template.",
+                   "timeline", inputs=["styles/default.style.yaml"], outputs=["styles/clients/<name>.style.yaml"],
+                   tests=["tests/test_delivery.py"]))
+def client_style(name: Annotated[str, typer.Argument(help="Client name (lower-case, e.g. acme).")],
+                 from_style: Annotated[Optional[str], typer.Option("--from-style", help="Note a learned style (e.g. from analyze-reference) to use with it.")] = None,
+                 as_json: JsonOpt = False) -> None:
+    """Writes a commented template; fill it from the client's brand guide. Jobs created with
+    `cutroom new <job> --client <name>` use it automatically."""
+    import re
+
+    from cutroom.style import styles_dir
+
+    if not re.fullmatch(r"[a-z0-9][a-z0-9._-]{1,40}", name):
+        raise RefusedError(f"Bad client name '{name}'.", fix="Lower-case letters, digits, '.', '_' or '-'.")
+    p = styles_dir() / "clients" / f"{name}.style.yaml"
+    if p.exists():
+        raise RefusedError(f"{p.name} exists.", fix="Edit it directly.")
+    inherit = (f"# Pacing learned from a reference: assemble jobs with `--style {from_style}`.\n" if from_style else "")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(CLIENT_TEMPLATE.format(name=name, inherit=inherit), encoding="utf-8")
+    emit(as_json, {"path": str(p)})
+    if not as_json:
+        out.print(f"Wrote {p} (fill it from the brand guide)")
