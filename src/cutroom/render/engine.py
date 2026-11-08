@@ -397,6 +397,87 @@ def prepare_broll(job: Job, tl: Timeline, rng: tuple[float, float], w: int, h: i
     return out
 
 
+def _graphics_key() -> str:
+    """Hash of the Remotion sources: overlay frames drawn by other code must not be reused."""
+    import hashlib
+
+    from cutroom.graphics.remotion import graphics_dir
+
+    h = hashlib.sha1()
+    src = graphics_dir() / "src"
+    for p in sorted(src.rglob("*")) if src.is_dir() else []:
+        if p.is_file():
+            h.update(p.name.encode())
+            h.update(p.read_bytes())
+    return h.hexdigest()[:12]
+
+
+def _plan_key(tl: Timeline, mode, span, encoder, timecode, captions, audio_chain, join_fade) -> str:
+    import hashlib
+
+    from cutroom import __version__
+
+    blob = json.dumps({"tl": tl.model_dump(mode="json", exclude={"meta": {"changelog", "created_at"}}), "mode": mode,
+                       "span": span, "encoder": encoder, "timecode": timecode, "captions": captions,
+                       "audio_chain": audio_chain, "join_fade": join_fade, "cutroom": __version__,
+                       "graphics": _graphics_key()}, sort_keys=True, default=str)
+    return hashlib.sha1(blob.encode()).hexdigest()
+
+
+def _load_state(scratch: Path, key: str) -> dict:
+    """Resume only an interrupted render of exactly the same plan; anything else starts clean."""
+    import shutil
+
+    st = scratch / "state.json"
+    if st.is_file():
+        try:
+            state = json.loads(st.read_text(encoding="utf-8"))
+        except ValueError:
+            state = {}
+        if state.get("key") == key:
+            return state
+    if scratch.exists():
+        shutil.rmtree(scratch, ignore_errors=True)
+    scratch.mkdir(parents=True, exist_ok=True)
+    state = {"key": key}
+    _save_state(scratch, state)
+    return state
+
+
+def _save_state(scratch: Path, state: dict) -> None:
+    atomic_write_text(scratch / "state.json", json.dumps(state, default=str) + "\n")
+
+
+def _render_edit_audio(job: Job, tl: Timeline, segs, rng, wav: Path, scratch: Path, extra: dict, *,
+                       join_fade: float, audio_chain: bool, seconds: float) -> tuple[list[int], Path]:
+    """Dialogue (click-free joins) → voice chain → music/SFX beds with ducking. Returns the join
+    sample indices and the WAV to mux; fills ``extra`` with the chain and mix reports."""
+    joins = render_audio(job, tl, segs, wav, join_fade=join_fade)
+    beds = render_beds(job, tl, rng)
+    mixer = None
+    if beds:
+        from cutroom.audio.mix import mix_beds
+
+        spans = speech_spans(job, tl, rng)
+        mcfg = _style_value(tl, ("audio", "music"), {})
+
+        def mixer(voice: Path, out: Path) -> dict:
+            return mix_beds(voice, out, beds, spans, cfg=mcfg, scratch=scratch)
+    if audio_chain and tl.audio.voice_chain:
+        from cutroom.audio.chain import apply_chain
+
+        out = scratch / "audio_processed.wav"
+        extra["audio_chain"] = apply_chain(wav, out, tl.audio.voice_chain, duration=seconds, mix=mixer)
+        if "mix" in extra["audio_chain"]:
+            extra["mix"] = extra["audio_chain"].pop("mix")
+        return joins, out
+    if mixer:
+        out = scratch / "audio_mixed.wav"
+        extra["mix"] = mixer(wav, out)
+        return joins, out
+    return joins, wav
+
+
 def _style_value(tl: Timeline, keys: tuple, default):
     from cutroom.style import timeline_style
 
@@ -473,8 +554,10 @@ def output_shots(job: Job, tl: Timeline) -> list[dict]:
 
 def overlay_frames(job: Job, tl: Timeline, w: int, h: int, total_frames: int, scratch: Path,
                    concurrency: int | None, *, captions: bool, span: tuple[float, float] | None,
-                   on_progress=None) -> tuple[str, Path, dict]:
-    """Render graphics and captions with Remotion in one pass; returns (FFmpeg pattern, frames dir, props)."""
+                   on_progress=None, resume: bool = False) -> tuple[str, Path, dict]:
+    """Render graphics and captions with Remotion in one pass; returns (FFmpeg pattern, frames dir, props).
+    With ``resume``, frames already rendered by an interrupted render are kept and only the rest
+    is drawn (the last frame found is redrawn: it may have been cut off)."""
     from cutroom.graphics.overlay import overlay_props
     from cutroom.graphics.remotion import frame_pattern, render_overlay
     from cutroom.style import timeline_style
@@ -484,8 +567,23 @@ def overlay_frames(job: Job, tl: Timeline, w: int, h: int, total_frames: int, sc
     props = overlay_props(tl, style_doc, width=w, height=h, fps=tl.meta.fps, total_frames=total_frames,
                           job_root=job.root, captions=captions, t0=t0, t1=t1)
     out_dir = scratch / "overlay"
-    render_overlay(props, out_dir, composition="Overlay", concurrency=concurrency, on_progress=on_progress,
-                   scratch=scratch)
+    have = sorted(out_dir.glob("*.png")) if resume and out_dir.is_dir() else []
+    n = props["durationInFrames"]
+    if have and len(have) >= n and (scratch / "overlay.done").is_file():
+        pass                                              # complete from an earlier attempt
+    elif have:
+        nums = sorted(int(p.stem) for p in have)
+        first_missing = next((k for k, v in enumerate(nums) if k != v), len(nums))
+        start = max(0, first_missing - 1)                 # redraw the last one: it may be truncated
+        for p in have:
+            if int(p.stem) >= start:
+                p.unlink()
+        render_overlay(props, out_dir, composition="Overlay", concurrency=concurrency, on_progress=on_progress,
+                       scratch=scratch, frame_range=(start, n - 1), keep_existing=True)
+    else:
+        render_overlay(props, out_dir, composition="Overlay", concurrency=concurrency, on_progress=on_progress,
+                       scratch=scratch)
+    (scratch / "overlay.done").write_text("ok", encoding="utf-8")
     pattern, _ = frame_pattern(out_dir)
     return pattern, out_dir, props
 
@@ -715,8 +813,21 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
     renders.mkdir(exist_ok=True)
     out_path = out_path or renders / f"v{tl.meta.version:03d}_{mode}{suffix}.mp4"
     scratch = renders / f".tmp_v{tl.meta.version:03d}_{mode}{suffix}"
-    scratch.mkdir(exist_ok=True)
-    extra: dict = {}
+    key = _plan_key(tl, mode, span, encoder, timecode, captions, audio_chain, join_fade)
+    state = _load_state(scratch, key)
+    resuming = bool(state.get("stages"))
+    extra: dict = {"resumed": resuming} if resuming else {}
+    timings: dict = {}
+    clock = [time.perf_counter()]
+
+    def lap(stage: str) -> None:
+        now = time.perf_counter()
+        timings[stage] = round(timings.get(stage, 0.0) + now - clock[0], 1)
+        clock[0] = now
+
+    def mark(stage: str, **data) -> None:
+        state.setdefault("stages", {})[stage] = data or True
+        _save_state(scratch, state)
     w, h = output_size(tl, mode)
     use_caps = bool(captions and tl.captions and tl.captions.cues and tl.captions.burn_in)
     rng = (a, b) if span is not None else (0.0, tl.duration)
@@ -724,37 +835,25 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
     cap_share = 0.45 if (use_caps or use_gfx) else 0.0  # share of the progress bar for the overlay
     try:
         wav = scratch / "audio.wav"
-        joins = render_audio(job, tl, segs, wav, join_fade=join_fade)
-        mux_wav = wav
-        beds = render_beds(job, tl, rng)
-        mixer = None
-        if beds:
-            from cutroom.audio.mix import mix_beds
-
-            spans = speech_spans(job, tl, rng)
-            mcfg = _style_value(tl, ("audio", "music"), {})
-
-            def mixer(voice: Path, out: Path) -> dict:
-                return mix_beds(voice, out, beds, spans, cfg=mcfg, scratch=scratch)
-        if audio_chain and tl.audio.voice_chain:
-            from cutroom.audio.chain import apply_chain
-
-            mux_wav = scratch / "audio_processed.wav"
-            extra["audio_chain"] = apply_chain(wav, mux_wav, tl.audio.voice_chain, duration=total_frames / fps,
-                                               mix=mixer)
-            if "mix" in extra["audio_chain"]:
-                extra["mix"] = extra["audio_chain"].pop("mix")
-        elif mixer:
-            mux_wav = scratch / "audio_mixed.wav"
-            extra["mix"] = mixer(wav, mux_wav)
+        done_audio = state.get("stages", {}).get("audio")
+        if done_audio and wav.is_file() and Path(done_audio["mux"]).is_file():
+            joins, mux_wav = done_audio["joins"], Path(done_audio["mux"])   # from an interrupted attempt
+            extra.update(done_audio.get("extra", {}))
+        else:
+            joins, mux_wav = _render_edit_audio(job, tl, segs, rng, wav, scratch, extra, join_fade=join_fade,
+                                                audio_chain=audio_chain, seconds=total_frames / fps)
+            mark("audio", joins=list(joins), mux=str(mux_wav),
+                 extra={k: extra[k] for k in ("audio_chain", "mix") if k in extra})
+        lap("audio")
         overlay = None
         if use_caps or use_gfx:
             from cutroom.graphics.overlay import caption_check_props
 
             overlay, ov_dir, props = overlay_frames(
                 job, tl, w, h, total_frames, scratch, graphics_concurrency, captions=use_caps,
-                span=(a, b) if span is not None else None,
+                span=(a, b) if span is not None else None, resume=resuming,
                 on_progress=(lambda f: on_progress(f * cap_share)) if on_progress else None)
+            lap("overlay")
             cprops = caption_check_props(props)
             if cprops:
                 extra["captions"] = {**tl.captions.stats, "style": tl.captions.style, "cues": len(tl.captions.cues),
@@ -766,9 +865,18 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
             if props["graphics"]:
                 extra["graphics"] = {"count": len(props["graphics"]),
                                      "measured": check_graphics(ov_dir, props, faces_at(job, tl, rng[0]))}
-        broll = prepare_broll(job, tl, rng, w, h, scratch) if tl.broll else []
+        lap("checks")
+        done_broll = state.get("stages", {}).get("broll")
+        if done_broll and all(Path(b["path"]).is_file() for b in done_broll):
+            broll = done_broll                              # pre-rendered by an interrupted attempt
+        else:
+            broll = prepare_broll(job, tl, rng, w, h, scratch) if tl.broll else []
+            if broll:
+                state["stages"]["broll"] = broll
+                _save_state(scratch, state)
         if broll:
             extra["broll"] = [{"id": b["id"], "frames": b["frames"]} for b in broll]
+            lap("broll")
         runs = group_runs(segs)
         parts = []
         done = 0
@@ -780,10 +888,17 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
                 if on_progress:
                     on_progress(min(0.99, cap_share + (1 - cap_share) * (base + f * n) / total_frames))
 
+            if i in state.get("runs_done", []) and part.is_file():
+                parts.append(part)                       # encoded by an interrupted attempt
+                done += frames
+                continue
             render_run(job, tl, run, part, mode=mode, encoder=encoder, timecode=timecode, scratch=scratch,
                        on_progress=prog, overlay=overlay, broll=broll)
             parts.append(part)
             done += frames
+            state.setdefault("runs_done", []).append(i)
+            _save_state(scratch, state)
+        lap("video")
         concat = scratch / "concat.txt"
         concat.write_text("".join(f"file '{p.name}'\n" for p in parts), encoding="utf-8")
         abitrate = "384k" if mode == "final" else "160k"
@@ -798,10 +913,15 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
                     "-use_editlist", "0", "-movflags", "+faststart+negative_cts_offsets", str(tmp_out)], desc="mux")
         tmp_out.replace(out_path)
         clicks = detect_clicks(wav, joins)
-    finally:
-        import shutil
+        lap("mux")
+    except BaseException:
+        # Keep the finished work: the same command resumes (audio, overlay frames, encoded runs).
+        job.log.warn(f"render of v{tl.meta.version:03d} {mode}{suffix} interrupted; finished parts kept in "
+                     f"{scratch.relative_to(job.root)} — run the same command again to resume")
+        raise
+    import shutil
 
-        shutil.rmtree(scratch, ignore_errors=True)
+    shutil.rmtree(scratch, ignore_errors=True)
     info = probe(out_path)
     expected = total_frames / fps
     v, a = info.primary_video, info.primary_audio
@@ -817,6 +937,7 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
         "elapsed_s": round(time.perf_counter() - t0, 1), "ffmpeg": ffmpeg_info().version,
         "encoder": "libx264" if mode == "final" else encoder,
         **extra,
+        "timings_s": timings,
     }
     from cutroom.perception.audio import measure_loudness
 

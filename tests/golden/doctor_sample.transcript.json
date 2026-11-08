@@ -1,0 +1,444 @@
+{
+ "schema": "cutroom.transcript/1",
+ "source_id": "S01",
+ "audio": "analysis/S01/audio_16k.wav",
+ "time_offset": 0.0,
+ "duration": 25.429,
+ "language": "en",
+ "engine": "faster-whisper 1.2.1",
+ "model": "large-v3-turbo",
+ "model_revision": "4df90f75321148c3a29a9e2351b7ddf8f5b115a8",
+ "device": "cpu",
+ "compute_type": "int8",
+ "options": {
+  "language": "en",
+  "task": "transcribe",
+  "beam_size": 5,
+  "word_timestamps": true,
+  "vad_filter": true,
+  "condition_on_previous_text": true,
+  "initial_prompt": "Umm, let me think like, hmm... Okay, here's what I'm, like, thinking.",
+  "hotwords": null
+ },
+ "created_at": "2026-11-08T04:08:49+00:00",
+ "elapsed_s": 10.43,
+ "rtf": 0.41,
+ "segments": [
+  {
+   "id": 0,
+   "start": 0.4,
+   "end": 6.36,
+   "text": "Hello, and welcome to the test clip. Today we are, we are going to bake a simple loaf of bread.",
+   "avg_logprob": -0.1315,
+   "no_speech_prob": 0.0,
+   "compression_ratio": 1.604,
+   "words": [
+    {
+     "text": " Hello,",
+     "start": 0.4,
+     "end": 1.1,
+     "prob": 0.6489
+    },
+    {
+     "text": " and",
+     "start": 1.38,
+     "end": 1.62,
+     "prob": 0.9719
+    },
+    {
+     "text": " welcome",
+     "start": 1.62,
+     "end": 1.94,
+     "prob": 0.9657
+    },
+    {
+     "text": " to",
+     "start": 1.94,
+     "end": 2.16,
+     "prob": 0.9974
+    },
+    {
+     "text": " the",
+     "start": 2.16,
+     "end": 2.28,
+     "prob": 0.977
+    },
+    {
+     "text": " test",
+     "start": 2.28,
+     "end": 2.56,
+     "prob": 0.9068
+    },
+    {
+     "text": " clip.",
+     "start": 2.56,
+     "end": 2.96,
+     "prob": 0.9715
+    },
+    {
+     "text": " Today",
+     "start": 3.26,
+     "end": 3.66,
+     "prob": 0.99
+    },
+    {
+     "text": " we",
+     "start": 3.66,
+     "end": 3.84,
+     "prob": 0.9861
+    },
+    {
+     "text": " are,",
+     "start": 3.84,
+     "end": 4.04,
+     "prob": 0.9976
+    },
+    {
+     "text": " we",
+     "start": 4.12,
+     "end": 4.32,
+     "prob": 0.9695
+    },
+    {
+     "text": " are",
+     "start": 4.32,
+     "end": 4.5,
+     "prob": 0.9988
+    },
+    {
+     "text": " going",
+     "start": 4.5,
+     "end": 4.78,
+     "prob": 0.9972
+    },
+    {
+     "text": " to",
+     "start": 4.78,
+     "end": 4.98,
+     "prob": 0.9993
+    },
+    {
+     "text": " bake",
+     "start": 4.98,
+     "end": 5.2,
+     "prob": 0.9936
+    },
+    {
+     "text": " a",
+     "start": 5.2,
+     "end": 5.36,
+     "prob": 0.9958
+    },
+    {
+     "text": " simple",
+     "start": 5.36,
+     "end": 5.68,
+     "prob": 0.9985
+    },
+    {
+     "text": " loaf",
+     "start": 5.68,
+     "end": 5.96,
+     "prob": 0.999
+    },
+    {
+     "text": " of",
+     "start": 5.96,
+     "end": 6.1,
+     "prob": 0.9991
+    },
+    {
+     "text": " bread.",
+     "start": 6.1,
+     "end": 6.36,
+     "prob": 0.9993
+    }
+   ]
+  },
+  {
+   "id": 1,
+   "start": 7.36,
+   "end": 12.98,
+   "text": "First, mix 400 grams of flour with warm water. Then let the dough rest for 2 hours.",
+   "avg_logprob": -0.1315,
+   "no_speech_prob": 0.0,
+   "compression_ratio": 1.604,
+   "words": [
+    {
+     "text": " First,",
+     "start": 7.36,
+     "end": 7.92,
+     "prob": 0.9772
+    },
+    {
+     "text": " mix",
+     "start": 8.12,
+     "end": 8.32,
+     "prob": 0.9817
+    },
+    {
+     "text": " 400",
+     "start": 8.32,
+     "end": 8.88,
+     "prob": 0.9948
+    },
+    {
+     "text": " grams",
+     "start": 8.88,
+     "end": 9.28,
+     "prob": 0.7382
+    },
+    {
+     "text": " of",
+     "start": 9.28,
+     "end": 9.56,
+     "prob": 0.9982
+    },
+    {
+     "text": " flour",
+     "start": 9.56,
+     "end": 9.76,
+     "prob": 0.9987
+    },
+    {
+     "text": " with",
+     "start": 9.76,
+     "end": 9.98,
+     "prob": 0.9983
+    },
+    {
+     "text": " warm",
+     "start": 9.98,
+     "end": 10.22,
+     "prob": 0.9985
+    },
+    {
+     "text": " water.",
+     "start": 10.22,
+     "end": 10.54,
+     "prob": 0.9996
+    },
+    {
+     "text": " Then",
+     "start": 10.88,
+     "end": 11.4,
+     "prob": 0.9932
+    },
+    {
+     "text": " let",
+     "start": 11.4,
+     "end": 11.58,
+     "prob": 0.9931
+    },
+    {
+     "text": " the",
+     "start": 11.58,
+     "end": 11.7,
+     "prob": 0.9987
+    },
+    {
+     "text": " dough",
+     "start": 11.7,
+     "end": 11.78,
+     "prob": 0.9991
+    },
+    {
+     "text": " rest",
+     "start": 11.78,
+     "end": 12.14,
+     "prob": 0.9996
+    },
+    {
+     "text": " for",
+     "start": 12.14,
+     "end": 12.32,
+     "prob": 0.9991
+    },
+    {
+     "text": " 2",
+     "start": 12.32,
+     "end": 12.48,
+     "prob": 0.8674
+    },
+    {
+     "text": " hours.",
+     "start": 12.48,
+     "end": 12.98,
+     "prob": 0.9965
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "start": 14.66,
+   "end": 20.86,
+   "text": "Then let the dough rest for 2 hours. Finally, bake it at 220 degrees for 40 minutes.",
+   "avg_logprob": -0.1315,
+   "no_speech_prob": 0.0,
+   "compression_ratio": 1.604,
+   "words": [
+    {
+     "text": " Then",
+     "start": 14.66,
+     "end": 15.22,
+     "prob": 0.9775
+    },
+    {
+     "text": " let",
+     "start": 15.22,
+     "end": 15.4,
+     "prob": 0.9961
+    },
+    {
+     "text": " the",
+     "start": 15.4,
+     "end": 15.52,
+     "prob": 0.9986
+    },
+    {
+     "text": " dough",
+     "start": 15.52,
+     "end": 15.64,
+     "prob": 0.9997
+    },
+    {
+     "text": " rest",
+     "start": 15.64,
+     "end": 15.98,
+     "prob": 0.9998
+    },
+    {
+     "text": " for",
+     "start": 15.98,
+     "end": 16.16,
+     "prob": 0.9994
+    },
+    {
+     "text": " 2",
+     "start": 16.16,
+     "end": 16.3,
+     "prob": 0.9953
+    },
+    {
+     "text": " hours.",
+     "start": 16.3,
+     "end": 16.74,
+     "prob": 0.9996
+    },
+    {
+     "text": " Finally,",
+     "start": 17.34,
+     "end": 17.76,
+     "prob": 0.9942
+    },
+    {
+     "text": " bake",
+     "start": 17.92,
+     "end": 18.2,
+     "prob": 0.9906
+    },
+    {
+     "text": " it",
+     "start": 18.2,
+     "end": 18.32,
+     "prob": 0.9903
+    },
+    {
+     "text": " at",
+     "start": 18.32,
+     "end": 18.46,
+     "prob": 0.9989
+    },
+    {
+     "text": " 220",
+     "start": 18.46,
+     "end": 19.14,
+     "prob": 0.9934
+    },
+    {
+     "text": " degrees",
+     "start": 19.14,
+     "end": 19.8,
+     "prob": 0.987
+    },
+    {
+     "text": " for",
+     "start": 19.8,
+     "end": 20.2,
+     "prob": 0.9977
+    },
+    {
+     "text": " 40",
+     "start": 20.2,
+     "end": 20.58,
+     "prob": 0.9984
+    },
+    {
+     "text": " minutes.",
+     "start": 20.58,
+     "end": 20.86,
+     "prob": 0.9966
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "start": 21.58,
+   "end": 24.2,
+   "text": "Thanks for watching, and see you next time.",
+   "avg_logprob": -0.1315,
+   "no_speech_prob": 0.0,
+   "compression_ratio": 1.604,
+   "words": [
+    {
+     "text": " Thanks",
+     "start": 21.58,
+     "end": 22.12,
+     "prob": 0.884
+    },
+    {
+     "text": " for",
+     "start": 22.12,
+     "end": 22.34,
+     "prob": 0.9913
+    },
+    {
+     "text": " watching,",
+     "start": 22.34,
+     "end": 22.72,
+     "prob": 0.9874
+    },
+    {
+     "text": " and",
+     "start": 23.06,
+     "end": 23.2,
+     "prob": 0.9982
+    },
+    {
+     "text": " see",
+     "start": 23.2,
+     "end": 23.38,
+     "prob": 0.999
+    },
+    {
+     "text": " you",
+     "start": 23.38,
+     "end": 23.52,
+     "prob": 0.9996
+    },
+    {
+     "text": " next",
+     "start": 23.52,
+     "end": 23.8,
+     "prob": 0.9998
+    },
+    {
+     "text": " time.",
+     "start": 23.8,
+     "end": 24.2,
+     "prob": 0.9998
+    }
+   ]
+  }
+ ]
+}

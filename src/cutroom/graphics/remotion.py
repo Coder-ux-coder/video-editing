@@ -53,7 +53,8 @@ def browser_executable() -> str | None:
 
 def render_overlay(props: dict, out_dir: Path, *, composition: str = "Captions", concurrency: int | None = None,
                    on_progress: Callable[[float], None] | None = None, scratch: Path | None = None,
-                   frames: list[int] | None = None) -> dict:
+                   frames: list[int] | None = None, frame_range: tuple[int, int] | None = None,
+                   keep_existing: bool = False) -> dict:
     """Render ``composition`` with ``props`` to ``out_dir`` as NNNN.png frames (transparent).
     With ``frames``, render only those frames as stills named <frame>.png."""
     g = ensure_installed()
@@ -61,7 +62,7 @@ def render_overlay(props: dict, out_dir: Path, *, composition: str = "Captions",
     scratch = scratch or out_dir.parent
     props_path = scratch / f"{composition.lower()}_props.json"
     props_path.write_text(json.dumps(props), encoding="utf-8")
-    if out_dir.exists():
+    if out_dir.exists() and not keep_existing:
         shutil.rmtree(out_dir)
     cmd = [str(node), str(g / "render.mjs"), "--composition", composition, "--props", str(props_path),
            "--out", str(out_dir)]
@@ -69,6 +70,8 @@ def render_overlay(props: dict, out_dir: Path, *, composition: str = "Captions",
         cmd += ["--concurrency", str(concurrency)]
     if frames:
         cmd += ["--frames", ",".join(str(int(f)) for f in frames)]
+    if frame_range:
+        cmd += ["--from", str(int(frame_range[0])), "--to", str(int(frame_range[1]))]
     b = browser_executable()
     if b:
         cmd += ["--browser", b]

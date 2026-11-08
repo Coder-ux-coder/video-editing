@@ -3,7 +3,7 @@
 An honest map of what Cutroom can do today, what it can do partially, and what it cannot
 do yet, with the plan for each gap. Updated at the end of every phase.
 
-Last updated: Phase 7 (delivery, revisions, NLE export).
+Last updated: Phase 8 (hardening: resumable renders, batch queue, job report, golden end-to-end test, CI).
 
 ## Can do (built and tested)
 
@@ -54,16 +54,22 @@ Last updated: Phase 7 (delivery, revisions, NLE export).
 | B-roll cutaways | `broll-suggest`, `broll-add` | Keyword suggestions; stills with Ken Burns or video clips; attached to content; frame-exact; small pictures refused |
 | Music beds | `music` | Generated (calm, documentary, upbeat, warm; seamless loops) or from the library; 12 dB under speech, ducked 8 dB more under speech; measured in every render |
 | Sound effects | `sfx` | Generated whoosh, riser, impact, pop, ding; on transitions or at moments |
-| Thumbnails | `thumbnails` | Candidates from the best face frames, title away from the face, 1280x720 < 2 MB, contrast and face checks, sourced numbers; `--pick` |
+| Thumbnails | `thumbnails` | Candidates from the best face frames, title away from the face, 1280x720 < 2 MB, contrast and face checks, sourced numbers; `--at` for moments you choose (footage without faces); `--pick` |
 | Style from a reference video | `analyze-reference` | Pauses and pacing measured into `styles/<name>.style.yaml` |
 | NLE export | `export` | OTIO (Resolve), FCPXML 1.10 (Resolve, Final Cut), CMX3600 EDL (Premiere/Avid), SRT; verified by reading back |
 | Publishing text and chapters | `publish` | Agent task + check (title, description, YouTube chapter rules, tags, hashtags, sourced numbers, credits); chapters into the timeline |
 | Client revisions | `revise` | Notes mapped from the watched version to the current edit with context; per-note plan; applied as versions; note-by-note report |
-| Delivery package | `deliver` | Video, captions, thumbnail, texts, Shorts, NLE files, report, manifest, checksums; refuses until ready; AWAITING APPROVAL |
+| Delivery package | `deliver` | Video, captions, thumbnail, texts, Shorts, NLE files, report, manifest, checksums; refuses until ready; open questions first in the report; AWAITING APPROVAL |
 | Human approval gate | `approve` | Records a named person's approval; never run by the agent |
 | Orchestration guide | `next` | Every playbook stage done or not, and the next command |
 | Client styles | `client-style`, `style --client-style` | Template for brand colours, fonts, captions, music levels |
 | Accepting an issue | `review --accept CHECK@T --reason …` | Editor's judgement recorded in every later report |
+| Resumable renders | `render` (same command again) | An interrupted render keeps its finished audio, overlay frames and encoded runs, keyed to the exact plan (edit, settings, graphics code); a changed plan starts clean; frame-exact after resume (tested by crashing mid-overlay and between runs) |
+| Stage timings | `render` | Every render reports seconds per stage (audio, overlay, checks, b-roll, video, mux) |
+| Job report: time, cost, network | `report` | Every command's runs, failures and time; render stages; review verdict; cost ($0.00, no paid services); models and assets that came from the network; client media uploaded: never |
+| Batch queue | `batch` | A text file of commands, each in its own process; re-running skips finished lines (keyed by command, not line number); stops at the first failure or `--keep-going`; `approve` refused |
+| Golden end-to-end regression | `tests/test_golden.py` | The bundled clip from raw footage to a package awaiting approval through the real CLI; the edit (cuts, clips, captions, graphic, checks, review, package) pinned in `tests/golden/` |
+| CI | `.github/workflows/tests.yml` | Runs only when a person starts it (no automatic runner minutes) |
 | Autonomous fix loop | `review --fix` | Up to 4 rounds of review → safe fixes (pauses, fillers, flash shots, punch-ins, graphics, captions, audio) → review; stops at the human gate. Seeded-defect test: 9/9 found and fixed in one fix round |
 
 ## Partially
@@ -71,15 +77,15 @@ Last updated: Phase 7 (delivery, revisions, NLE export).
 | Capability | Gap | Plan |
 |---|---|---|
 | Flash shots where the source's own camera change falls mid-speech | `review --fix` trims word-free slivers onto the camera change or lengthens the shot into a neighbouring pause; a sliver that holds a word with no pause to borrow is left for a person | Move the join by a word (needs judgement) |
-| Speaker identification | Off-mic voices hinted by level (⟪quiet⟫); interviewer questions identified by the agent from content | Diarization (speaker embeddings, non-gated free model): moved to Phase 8, Shorts did not need it (single speaker) |
+| Speaker identification | Off-mic voices hinted by level (⟪quiet⟫); interviewer questions identified by the agent from content | Diarization was planned for Phase 8 and **not built**: the free models good enough to trust are gated (an account and accepted terms) or untested here; see CHARTER 4.11 |
 | Filler/stumble transcription | Whisper drops some; acoustic detection catches voiced sounds in pauses, not fillers fused into words | Measure on more real footage; optional second verbatim pass |
 | Footage-type detection | Heuristic; screen-recording detection untested on real screen captures | Test on real samples; add OCR text density |
 | Windows / macOS / NVIDIA GPU | Written to official docs, not yet run on real hardware | Your first `setup` + `doctor` run |
 | Reading speed | Captions follow speech, so fast talkers exceed 17 chars/s (reported, not hidden) | Optional condensed captions (agent-edited text) for very fast speech |
-| Caption render time | Remotion draws every frame: ~7 min for a 9-min 540p preview on 4 cores | Skip frames with no caption; render only changed frames (Phase 8 profiling) |
+| Caption render time | Remotion draws every frame: ~7 min for a 9-min 540p preview, ~18 min for the 1080p final, on 4 cores (stage timings now in every render report) | Skip frames with nothing on screen; reuse unchanged frames between versions |
 | Graphics size estimate | Placement uses a size hint per template; long text can be wider than estimated (the render check then fails and says so) | Measure text with the theme fonts before placing |
 | J/L cuts | Audio and picture are cut together; a flash shot that holds a word cannot be fixed without one | Separate audio/picture edges per join |
-| Shorts with several speakers | Two-shots use the fill layout; no active-speaker switching | Needs diarization (Phase 8) |
+| Shorts with several speakers | Two-shots use the fill layout; no active-speaker switching | Needs diarization (not built) |
 | B-roll matching | Keyword match between sentences and asset tags; relevance is judged by the agent looking at the picture | Visual-semantic matching (local CLIP-style model) |
 | Music | Generated beds are simple pads; no free music source with machine-readable licences was reachable | Library music added by hand (`asset-add`) with its licence |
 | Crossfades | Transitions are overlays over a cut; true video crossfades (overlapping clips) are not rendered | Add when a client style asks for them |
@@ -91,5 +97,5 @@ Last updated: Phase 7 (delivery, revisions, NLE export).
 
 | Capability | Phase |
 |---|---|
-| Batch queue, crash resume, golden regression suite | 8 |
-| Speed ramps, stabilisation, colour matching, multicam sync, green screen, PiP, split screen, cursor-following zooms, sponsor segments, A/B thumbnails, J/L cuts | Not scheduled in Phases 1–7; candidates after Phase 8 (each needs its own render support and tests) |
+| Speaker diarization (who speaks when) | Deferred: see CHARTER 4.11 |
+| Speed ramps, stabilisation, colour matching, multicam sync, green screen, PiP, split screen, cursor-following zooms, sponsor segments, A/B thumbnails, J/L cuts | Not built; candidates for later work (each needs its own render support and tests) |

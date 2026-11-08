@@ -40,7 +40,7 @@ def candidate_moments(job: Job, tl: Timeline, n: int = 3, min_gap: float = 20.0)
             centred = 1 - abs(f["x"] + f["w"] / 2 - 0.5)
             scored.append((size * 2 + centred * 0.3, c.to_timeline(smp["t"]), c.source, smp["t"], f))
     if not scored:
-        raise CutroomError("No faces found in the edit for a thumbnail.", fix="Run `cutroom analyze` (faces), or give --at.")
+        raise CutroomError("No faces found in the edit for a thumbnail.", fix="Run `cutroom analyze` (faces), or choose moments with --at (seconds or m:ss).")
     scored.sort(key=lambda x: -x[0])
     pool = scored[: max(30, n * 10)]
     src = {s.id: s for s in tl.sources}
@@ -70,6 +70,26 @@ def candidate_moments(job: Job, tl: Timeline, n: int = 3, min_gap: float = 20.0)
     return sorted(out[:n], key=lambda d: d["t"])
 
 
+def moments_at(job: Job, tl: Timeline, times: list[float]) -> list[dict]:
+    """Moments the agent chose (timeline seconds): for footage without a usable face (screen
+    recordings, products, landscapes) or to override the face-based picks. A face detected near the
+    moment is still kept clear of the title."""
+    out = []
+    for t in times:
+        c = next((c for c in tl.track_clips() if c.start <= t < c.end), None)
+        if c is None:
+            raise CutroomError(f"{t:.2f}s is outside the edit ({tl.duration:.2f}s).", fix="Give a time inside the edit.")
+        st = c.to_source(t)
+        face = None
+        p = job.root / "analysis" / c.source / "faces.json"
+        if p.is_file():
+            near = [smp for smp in json.loads(p.read_text(encoding="utf-8")) if smp["faces"] and abs(smp["t"] - st) <= 0.5]
+            if near:
+                face = min(near, key=lambda smp: abs(smp["t"] - st))["faces"][0]
+        out.append({"t": round(t, 2), "source": c.source, "src_t": st, "face": face})
+    return out
+
+
 def compose(job: Job, tl: Timeline, moment: dict, text: str, emphasis: list[str], out_path: Path, theme: dict,
             scratch: Path, zoom: float = 0.8) -> dict:
     """Render one thumbnail and check it. The frame is recomposed as a tighter 16:9 crop that puts
@@ -80,17 +100,24 @@ def compose(job: Job, tl: Timeline, moment: dict, text: str, emphasis: list[str]
     rec = job.source(moment["source"])
     frame = V.grab_frames(job.source_path(rec), [moment["src_t"]], 1080)[0]
     fh, fw = frame.shape[:2]
-    f = moment["face"]
-    fcx, fcy = (f["x"] + f["w"] / 2) * fw, (f["y"] + f["h"] / 2) * fh
-    side = "left" if fcx >= fw / 2 else "right"           # text goes where the face is not
-    ch = int(fh * zoom)
-    cw = min(fw, int(ch * 16 / 9))
-    target = 0.68 if side == "left" else 0.32
-    x0 = int(min(max(0, fcx - target * cw), fw - cw))
-    y0 = int(min(max(0, fcy - 0.42 * ch), fh - ch))
+    f = moment.get("face")
+    if f:
+        fcx, fcy = (f["x"] + f["w"] / 2) * fw, (f["y"] + f["h"] / 2) * fh
+        side = "left" if fcx >= fw / 2 else "right"       # text goes where the face is not
+        ch = int(fh * zoom)
+        cw = min(fw, int(ch * 16 / 9))
+        target = 0.68 if side == "left" else 0.32
+        x0 = int(min(max(0, fcx - target * cw), fw - cw))
+        y0 = int(min(max(0, fcy - 0.42 * ch), fh - ch))
+        face_box = ((f["x"] * fw - x0) / cw, (f["y"] * fh - y0) / ch, ((f["x"] + f["w"]) * fw - x0) / cw,
+                    ((f["y"] + f["h"]) * fh - y0) / ch)
+    else:                                                 # no face: the whole 16:9 frame, title left
+        side = "left"
+        cw = min(fw, int(fh * 16 / 9))
+        ch = int(cw * 9 / 16)
+        x0, y0 = (fw - cw) // 2, (fh - ch) // 2
+        face_box = (0.0, 0.0, 0.0, 0.0)
     crop = cv2.resize(frame[y0:y0 + ch, x0:x0 + cw], (W, H), interpolation=cv2.INTER_AREA)
-    face_box = ((f["x"] * fw - x0) / cw, (f["y"] * fh - y0) / ch, ((f["x"] + f["w"]) * fw - x0) / cw,
-                ((f["y"] + f["h"]) * fh - y0) / ch)
     ok, buf = cv2.imencode(".jpg", crop, [cv2.IMWRITE_JPEG_QUALITY, 92])
     base = {"image": "data:image/jpeg;base64," + base64.b64encode(buf.tobytes()).decode(), "emphasis": emphasis,
             "side": side, "theme": theme, "width": W, "height": H}

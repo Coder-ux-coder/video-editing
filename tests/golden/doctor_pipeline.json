@@ -1,0 +1,13 @@
+{
+ "steps": ["assemble", "remove-silence", "detect-retakes", "audio", "captions", "graphic-add", "music", "punch-in"],
+ "frames": 451,
+ "clips": [["S01", 17, 92], ["S01", 103, 167], ["S01", 189, 271], ["S01", 374, 428], ["S01", 434, 531], ["S01", 542, 621]],
+ "cuts": [["head", 0, 17], ["retake", 278, 332], ["silence", 167, 189], ["silence", 271, 278], ["silence", 332, 374], ["silence", 428, 434], ["silence", 531, 542], ["stumble", 92, 103], ["tail", 621, 635]],
+ "captions": ["Hello, and welcome to the test clip.", "Today we are going to bake a simple loaf of bread.", "First, mix 400 grams of flour with warm water.", "Then let the dough rest for 2 hours.", "Finally, bake it at 220 degrees for 40 minutes.", "Thanks for watching, and see you next time."],
+ "graphics": [["number-counter", 278, 353, 220]],
+ "music_beds": 1,
+ "voice_chain": true,
+ "final": {"size": "1920x1080", "frames": 451, "checks": {"no_edit_lists": true, "duration_ok": true, "frames_ok": true, "no_clicks": true, "loudness_on_target": true, "true_peak_ok": true, "graphics_off_faces": true, "graphics_in_safe_area": true, "captions_in_safe_zone": true, "caption_sync_80ms": true}},
+ "review": {"counts": {"blocker": 0, "major": 0, "minor": 1, "polish": 0}, "ready": true, "issues": ["structure.hook"]},
+ "package": {"status": "AWAITING APPROVAL", "files": ["APPROVAL.md", "MANIFEST.json", "REPORT.md", "checksums.sha256", "description.txt", "golden.mp4", "golden.srt", "golden.vtt", "nle/golden_v008.edl", "nle/golden_v008.fcpxml", "nle/golden_v008.otio", "nle/golden_v008.srt", "thumbnail.jpg", "title.txt"]}
+}

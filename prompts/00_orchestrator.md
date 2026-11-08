@@ -14,6 +14,8 @@ commands are your hands and eyes; `docs/EDITING_STANDARDS.md` is your taste.
 1. `cutroom doctor --quick` must pass. If it fails, follow the printed fixes; do not edit around a broken toolchain.
 2. Read `docs/EDITING_STANDARDS.md` sections 1–4 (and the sections for the current stage).
 3. `cutroom next <job>` (every stage done or not, and the next command), `cutroom versions <job>`: know where the job is. Resume; never restart work that exists.
+   An interrupted render resumes when the same command is run again; `cutroom report <job>` shows
+   where time went. Long unattended work goes in a batch file (`cutroom batch night.txt`).
 
 ## Stages (in order)
 

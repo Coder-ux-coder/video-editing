@@ -326,18 +326,20 @@ def thumbnails(job_id: JobArg, text: Annotated[str, typer.Option(help="2-5 words
                emphasis: Annotated[Optional[list[str]], typer.Option("--emphasis", "-e", help="Word(s) in the accent colour.")] = None,
                fact: Annotated[Optional[list[str]], typer.Option("--fact", "-f", help="Source for numbers in the text.")] = None,
                count: Annotated[int, typer.Option(help="How many candidates.")] = 3,
+               at: Annotated[Optional[list[str]], typer.Option("--at", help="Use this moment (s or m:ss; repeat) instead of the face-based picks.")] = None,
                pick_: Annotated[Optional[int], typer.Option("--pick", help="Choose candidate N as the video's thumbnail.")] = None,
                version: VersionOpt = None, as_json: JsonOpt = False) -> None:
     """Candidates from frames where the speaker's face is large, sharp and well exposed, spread over
     the video; the title sits on the side away from the face on a gradient. Checked: 1280x720, under
-    2 MB, text contrast, face clear of the text. Look at them and --pick one."""
+    2 MB, text contrast, face clear of the text. Look at them and --pick one. With --at, the
+    moments are yours (footage without a face, or a better frame you found)."""
     import shutil
 
     from cutroom.graphics.facts import require_facts
     from cutroom.graphics.templates import get_template
-    from cutroom.thumbnails import candidate_moments, compose
+    from cutroom.thumbnails import candidate_moments, compose, moments_at
     from cutroom.tools._common import open_edit
-    from cutroom.tools.graphics_tools import resolve_refs
+    from cutroom.tools.graphics_tools import parse_time, resolve_refs
 
     ctx = open_edit(job_id, version)
     words = text.split()
@@ -358,7 +360,7 @@ def thumbnails(job_id: JobArg, text: Annotated[str, typer.Option(help="2-5 words
             out.print(f"renders/thumbnail.jpg ← candidate {pick_}")
         return
     theme = ctx.style.get("graphics", {}).get("theme", {})
-    moments = candidate_moments(ctx.job, ctx.tl, count)
+    moments = moments_at(ctx.job, ctx.tl, [parse_time(a) for a in at]) if at else candidate_moments(ctx.job, ctx.tl, count)
     cands = []
     for k, m in enumerate(moments, 1):
         res = compose(ctx.job, ctx.tl, m, text, [e.lower() for e in (emphasis or [])], outdir / f"thumb_{k}.jpg",

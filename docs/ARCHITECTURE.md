@@ -222,6 +222,15 @@ of the edit), `versions`, `undo`, `checkout`, `snapshot`. Field reference: `docs
   quality per bit; YouTube re-encodes anyway, so a clean high-bitrate master matters more
   than encode speed. Trade-off: finals take longer on slow machines.
 - **Previews** burn in timecode and clip labels so frames in review reports can be traced.
+- **Resume and timings** [built, P8]: a render works in `renders/.tmp_vNNN_<mode>/` with a
+  `state.json` keyed to a hash of the exact plan (the timeline without its change log, mode,
+  range, encoder, captions, voice chain, Cutroom version and a hash of the Remotion sources).
+  Finished stages are recorded as they complete (edit audio and mix, overlay frames, each
+  encoded run). If the render fails or is interrupted the folder is kept and the same command
+  resumes: audio is reused, overlay frames continue from the first missing one (the last one
+  found is redrawn, it may be truncated), encoded runs are skipped. Any other plan, or a
+  corrupt state file, starts clean. The folder is removed only after a successful mux. Every
+  report carries `timings_s` per stage.
 
 ### 4.6 Review layer [built]
 
@@ -342,8 +351,12 @@ order, with which quality gates and when to stop and ask.
   fixes (missing file, corrupt media, missing encoder, disk full, out of memory).
 - All job files are written atomically (temp file + rename): a crash never leaves a
   half-written manifest, transcript or proxy (`.partial` files are discarded).
-- Resume after crash [P8]: stages are idempotent and recorded in `job.json`, so re-running
-  a command continues where it stopped.
+- Resume after crash [built, P8]: analysis stages are idempotent and recorded in `job.json`;
+  renders resume their own finished parts (§4.5); a batch file (`cutroom batch`) records each
+  line's outcome next to the file and skips finished lines when run again.
+- Command log: every job command (any registered tool whose first argument is the job) is
+  recorded in `logs/commands.jsonl` with status and seconds; `cutroom report` turns it, the
+  render timings and the review into `logs/report.md` with the cost ($0) and network use.
 
 ## 8. Security, privacy, licensing
 
@@ -372,7 +385,7 @@ as the honest map of can / partially / cannot-yet.
 | 5 Shorts | Moment selection, reframing, hooks, captions | 5 self-contained, face-centred Shorts with safe captions |
 | 6 B-roll, music, SFX, thumbnails | Free library + procedural fallbacks, ducking | Music ducks; b-roll aligned; licence log complete |
 | 7 Orchestrator, styles, revisions, NLE export | End-to-end run, revision notes → timeline edits, OTIO/FCPXML | One instruction → full delivery package; revisions change only what they should |
-| 8 Hardening | Batch queue, crash resume, profiling, cost report, golden regression suite | |
+| 8 Hardening | Batch queue, crash resume, profiling, cost report, golden regression suite | Interrupted renders resume frame-exact; a raw clip reaches a package awaiting approval through the CLI and matches the golden fingerprint |
 
 ## 11. Changes to the brief and decisions
 
@@ -384,4 +397,7 @@ as the honest map of can / partially / cannot-yet.
 2. **"LLM-assisted" steps run inside the agent session** (§4.8), not through an API.
 3. **Speaker diarization without gated models.** pyannote's models are free but require a
    HuggingFace account and accepting terms per model. Default plan: separate tracks when
-   available, otherwise a non-gated free model; pyannote stays optional.
+   available, otherwise a non-gated free model; pyannote stays optional. **Status after
+   Phase 8: not built** (CHARTER 4.11): no multi-speaker test footage was available to
+   validate an ungated model, and an unvalidated speaker label would mislead the
+   cutting and Shorts tools more than no label.

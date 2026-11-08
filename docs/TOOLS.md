@@ -69,7 +69,9 @@ Commands provided by modules in `src/cutroom/tools/` (see `registry.py`).
 | `undo` | timeline | Move HEAD back to the parent version (nothing is deleted). | no | `tests/test_timeline.py` |
 | `validate` | timeline | Validate a timeline (schema, structure, word-boundary cuts). | no | `tests/test_timeline.py` |
 | `versions` | timeline | List timeline versions with their changelog lines. | no | `tests/test_timeline.py` |
+| `batch` | utility | Run a file of cutroom commands one after another; re-running resumes. | no | `tests/test_hardening.py` |
 | `ffmpeg` | utility | Run any FFmpeg command in the job folder (logged; sources protected). | no | `tests/test_tools.py` |
+| `report` | utility | Where a job's time went (commands, render stages), its cost ($0) and network use. | no | `tests/test_hardening.py` |
 
 ## `cutroom analyze`
 
@@ -174,6 +176,21 @@ Parameters:
 - `--target-lufs`: Integrated loudness target (default from style: -14).
 - `--denoise`, `--no-denoise`: Force denoise on/off (default: decided from the noise measurement).
 - `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom batch`
+
+Each line runs as its own process; the outcome of every line is kept in <file>.state.json.
+Run the same batch again and finished lines are skipped (an interrupted render resumes its
+own finished parts). Stops at the first failure unless --keep-going. `approve` is refused:
+a person approves deliveries.
+
+Parameters:
+
+- `FILE`: Text file: one cutroom command per line, # comments.
+- `--keep-going`: Continue after a failed line.
+- `--again`: Forget earlier successes and run every line.
+- `--dry-run`: List what would run.
 - `--json`: Print machine-readable JSON on stdout.
 
 ## `cutroom broll-add`
@@ -688,6 +705,17 @@ Parameters:
 - `--range`: Render only timeline seconds START-END, e.g. 30-55 (for reviewing a section).
 - `--json`: Print machine-readable JSON on stdout.
 
+## `cutroom report`
+
+Every logged command with its time and failures, each full render's stage timings and
+self-checks, the HEAD review scorecard, the playbook stages, the cost (always $0.00: nothing
+is paid) and what reached the network (free models, licensed assets; never client media).
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--json`: Print machine-readable JSON on stdout.
+
 ## `cutroom restore`
 
 Undo specific cuts without undoing whole versions, e.g. a filler that was really a word.
@@ -917,7 +945,8 @@ Parameters:
 
 Candidates from frames where the speaker's face is large, sharp and well exposed, spread over
 the video; the title sits on the side away from the face on a gradient. Checked: 1280x720, under
-2 MB, text contrast, face clear of the text. Look at them and --pick one.
+2 MB, text contrast, face clear of the text. Look at them and --pick one. With --at, the
+moments are yours (footage without a face, or a better frame you found).
 
 Parameters:
 
@@ -926,6 +955,7 @@ Parameters:
 - `--emphasis`, `-e`: Word(s) in the accent colour.
 - `--fact`, `-f`: Source for numbers in the text.
 - `--count`: How many candidates. (default: 3)
+- `--at`: Use this moment (s or m:ss; repeat) instead of the face-based picks.
 - `--pick`: Choose candidate N as the video's thumbnail.
 - `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
 - `--json`: Print machine-readable JSON on stdout.

@@ -203,6 +203,19 @@ Conclusions:
 | Revision notes are mapped through the source | A client's "8:06" refers to the version they watched; mapping through the source time finds the same words in the current edit even after later cuts. Every note must end with commands or an answer (question or declined with the reason); approval and delivery are refused inside a revision plan. |
 | Chapters are written after the last edit | Chapter times are positions in the edit; the publishing check validates them against the current length and YouTube's rules (first at 0:00, ≥ 3, each ≥ 10 s). |
 
+### 4.11 Phase 8 decisions
+
+| Decision | Why / evidence |
+|---|---|
+| Renders resume from finished parts, keyed to the exact plan | A 1080p final of the 8.5-minute interview takes ~18 minutes; losing it to a crash at minute 17 is the costliest failure a person would see. Finished audio, overlay frames and encoded runs are kept; the key is a hash of everything that changes the picture or sound (edit, settings, Cutroom version, Remotion sources), so a stale part can never be reused. Tested by crashing between runs and in the middle of the overlay: the resumed output matches a clean render. |
+| Batch lines run as separate processes, keyed by command | One job's crash cannot corrupt another's state; a finished line is not repeated when lines are added above it. `approve` is refused in a batch (the human gate). |
+| Every job command is timed by the plugin registry | Tools did not all log themselves; wrapping them at registration covers every current and future tool. Logging failures never change a command's outcome. |
+| The cost report states $0.00 and shows the evidence | There are no paid services to meter; the report instead lists what reached the network (pinned models, licensed assets with their sources). An audit of the code found network calls only in `assets/library.py` (Commons) and `perception/models.py` (model downloads); there is no upload path. |
+| Golden test on the bundled synthetic clip with a frozen transcript | Runs everywhere without a speech model, exercises the real CLI from ingest to delivery, and pins what a person would notice (cuts, clips, captions, graphic, checks, review verdict, package files) in frames, with one frame of tolerance for decoder differences between FFmpeg builds. |
+| CI only on manual dispatch | Zero budget: no runner minutes are spent unless a person starts the workflow. |
+| Diarization not built | Planned for Phase 8. The good free models are gated (pyannote: an account and accepted terms, which is the person's decision, gate c); the ungated alternatives (speaker embeddings + clustering) could not be validated: the test recordings here have one on-camera speaker (the interviewer is heard only in a couple of short off-mic questions), far too little to measure accuracy. Shipping speaker labels without measured accuracy would mislead cutting and Shorts. Today: off-mic voices are flagged by level and the agent identifies interviewer questions from content. Next step when multi-speaker footage is available: measure an ungated embedding model on it before wiring it in. |
+| Thumbnails accept chosen moments | The face-based picker failed on footage without faces (found by the golden test); `--at` lets the agent choose frames, and a face near the moment is still kept clear of the title. |
+
 ## 5. Decisions you made
 
 | Date | Question | Your answer | Consequence |

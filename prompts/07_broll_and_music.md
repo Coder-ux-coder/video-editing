@@ -29,7 +29,8 @@ credit lines, references), `cutroom assets` (library), the style (`audio.music`)
    overlay transition; `--at T` for a single pop on a list item. Never one on every cut.
 5. **Thumbnail.** `cutroom thumbnails <job> --text "<2–5 words the video supports>" -e <word>
    [--fact sentences:N]` makes candidates from the best face frames (title on the side away from the
-   face, checked for size, weight, contrast and face overlap). Open them, then `--pick N`.
+   face, checked for size, weight, contrast and face overlap). Open them, then `--pick N`. No usable
+   face (screen recording, product, landscape) or a better frame you found: `--at 1:23 --at 4:05`.
 6. **Render and review** (playbook 09): b-roll lengths, licences and credits, music level and effect
    count are checked; look at the sheets around every cutaway.
 

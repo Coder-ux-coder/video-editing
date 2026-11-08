@@ -1,0 +1,36 @@
+# Cutroom tests on GitHub's free runners. Started by hand only (Actions tab → "tests" → Run
+# workflow): nothing runs on push, so no runner minutes are ever used without a person deciding.
+# The fast suite needs no speech model; "slow" adds the Remotion renders, the golden end-to-end
+# run and real transcription (downloads a free model, ~0.5 GB).
+name: tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      slow:
+        description: "Also run the slow tests (renders with graphics, golden end-to-end, transcription)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: System packages (FFmpeg)
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Set up Cutroom (pinned Python deps, graphics package, headless browser)
+        run: ./setup.sh --yes --skip-ffmpeg --skip-doctor --no-select-asr
+      - name: Fast tests
+        if: ${{ !inputs.slow }}
+        run: .venv/bin/pytest -q -m "not slow"
+      - name: All tests
+        if: ${{ inputs.slow }}
+        run: .venv/bin/pytest -q
