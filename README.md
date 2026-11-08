@@ -17,6 +17,17 @@ Free and local: every tool, model and asset is free and runs on your machine; no
 per use, and Cutroom contains no code that uploads footage (`cutroom report <job>` shows the cost,
 $0.00, and what the network was used for).
 
+## Use it with Claude
+
+1. In the Claude desktop app, open the **Code** tab and choose this repository: as a local folder
+   (clone it first: `git clone https://github.com/Coder-ux-coder/video-editing.git`) for client
+   work, or as a cloud session on the GitHub repository.
+2. Say what you want, for example: *"Set up Cutroom and edit `~/Videos/interview.mp4`: a 6-minute
+   YouTube video for small-business owners, plus 3 Shorts."*
+
+Claude reads `CLAUDE.md`, sets itself up (about a minute), runs the edit, stops only for your
+decisions and your final approval, and changes Cutroom's own code when a job needs something new.
+
 ## Set up
 
 Needs about 5 GB of free disk for tools and models, plus room for footage. Everything installed is free.

@@ -4,6 +4,21 @@ Cutroom is an agent-native video editor: raw footage and a brief in, a YouTube v
 out. **You are the editor and the maintainer.** You run jobs with its commands, and you change
 its code whenever a job needs something it cannot do yet.
 
+## Start here, every session
+
+1. **Set up if needed** (about a minute on a fast connection; skips work already done):
+   - macOS / Linux: `test -x .venv/bin/cutroom || ./setup.sh --yes`
+   - Windows: `if (-not (Test-Path .venv\Scripts\cutroom.exe)) { powershell -ExecutionPolicy Bypass -File .\setup.ps1 --yes }`
+2. `cutroom doctor --quick` (with `.venv` active, or `.venv/bin/cutroom`). Fix what it reports.
+3. Then do what the owner asks: edit a video (see "Running a job") or change Cutroom itself.
+
+**Where it runs.** In the Claude desktop app, open this repository as a **local folder** (Code tab)
+for client work: footage and renders stay on the owner's computer. A **cloud session** on the
+GitHub repository works too (setup runs the same way), but files put into a cloud session are on a
+cloud machine: use it for building Cutroom and for public or the owner's own footage, not for client
+footage unless the owner says that is fine. Cloud machines are temporary: download finished videos
+before the session ends.
+
 ## Standing permission from the owner
 
 The owner (Mohid Zeeshan) has given you full autonomy over this codebase:
@@ -15,13 +30,12 @@ The owner (Mohid Zeeshan) has given you full autonomy over this codebase:
   gates (below) or when a decision is genuinely theirs (taste, facts, money).
 - Commit your changes with clear messages and push them to the branch you are working on.
 
-## First session on a machine
+## Setup details
 
-```bash
-./setup.sh --yes                     # Python 3.12 venv, FFmpeg, graphics package, browser, speech model
-source .venv/bin/activate            # Windows: .venv\Scripts\activate
-cutroom doctor                       # every check passes, or prints the fix
-```
+`./setup.sh --yes` installs Python 3.12 if missing, FFmpeg, the pinned Python packages into `.venv`,
+the graphics package (Node.js + Remotion) with its headless browser, and benchmarks and downloads a
+speech model (`--no-select-asr` skips that; it is then downloaded on first use). Then
+`source .venv/bin/activate` (Windows: `.venv\Scripts\activate`) and `cutroom doctor`.
 
 - Speaker detection (optional): `pip install -r requirements-speakers.txt`. It needs a Hugging Face
   read token once (`hf auth login`); the owner's account has accepted the model's conditions.
