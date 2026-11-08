@@ -182,6 +182,11 @@ of the edit), `versions`, `undo`, `checkout`, `snapshot`. Field reference: `docs
 - **Video**: clips are grouped into *runs* (consecutive clips of one source in increasing
   source order). Each run is one FFmpeg pass: conform to the output frame rate, then keep exact
   frame-number ranges (`select=between(n,a,b)`): one decode, no frame buffering, no drift.
+  A run that starts deep into its source seeks to 2 s before its first clip (`-copyts
+  -start_at_zero`: timestamps stay those of a decode from the start) and selects the same frames
+  by timestamp (tested against a full decode for 25, 29.97 and 24 fps sources with B-frames and
+  non-zero start times). The final AAC audio is encoded in the background while the overlay and
+  video are drawn, so the mux only copies streams.
   Runs are concatenated without re-encoding. Tested frame-exact by encoding frame numbers in
   pixel brightness.
 - **Audio**: assembled sample-accurately in Python from the 48 kHz FLAC, with an 8 ms fade on
@@ -200,11 +205,13 @@ of the edit), `versions`, `undo`, `checkout`, `snapshot`. Field reference: `docs
   bundle cached by source hash); FFmpeg overlays them inside each video run, so no extra encode.
   Overlay frames are cached (`graphics/framecache.py`): a frame's key hashes the drawing code,
   size, fps, theme and caption style plus, for each item on screen, its content without its place
-  in time and its local frame (graphics draw inside Sequences; a caption cue's word times are
-  relative to its start). Equal keys are identical pixels, so blank and repeated frames are drawn
-  once, and after an edit only frames whose content changed are drawn (only those frame ranges are
-  passed to Remotion, in one browser). Frames are hard-linked into `renders/.overlay-cache`,
-  pruned least recently used past `CUTROOM_OVERLAY_CACHE_GB` (default 3).
+  in time and its local frame (graphics draw inside Sequences), or for the caption cue its
+  animation state (`graphics/src/components/captionState.js`, the only way Captions.jsx reads
+  time; `graphics/caption_states.mjs` computes it per frame). Equal keys are identical pixels, so
+  blank, repeated and held frames are drawn once, and after an edit only frames whose content
+  changed are drawn: one Remotion pass over exactly those frames (the Overlay composition's
+  `frameMap` freezes output frame i at composition frame need[i]). Frames are hard-linked into
+  `renders/.overlay-cache`, pruned least recently used past `CUTROOM_OVERLAY_CACHE_GB` (default 3).
   FFmpeg stays the single master compositor; the graphics engine only draws. One "Overlay"
   composition draws every graphic (sorted by z) with captions on top; graphics that hide
   captions (kinetic text, title cards) trim the cues they overlap. Fully opaque frames are

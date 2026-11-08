@@ -3,7 +3,9 @@
 Video: clips are grouped into *runs* (consecutive clips from one source in increasing source
 order). Each run is one FFmpeg pass that conforms the source to the output frame rate and
 keeps exact frame-number ranges (``select=between(n,a,b)``): one decode, no buffering, no drift.
-Runs are concatenated without re-encoding.
+A run that starts deep into its source seeks to just before it and selects the same frames by
+timestamp. Runs are concatenated without re-encoding; the AAC audio is encoded in the background
+while the video is drawn and encoded, and the mux copies both.
 
 Audio: assembled sample-accurately in Python from the 48 kHz analysis audio, with a short
 raised-cosine fade on both sides of every join, so cuts never click. Clip edges are snapped
@@ -29,7 +31,7 @@ import soundfile as sf
 from cutroom.errors import CutroomError, MediaError
 from cutroom.ingest.probe import fps_rational, probe
 from cutroom.job import Job, atomic_write_text
-from cutroom.system.ffmpeg import filter_complex_file_args, ffmpeg_info, require_tool, run_ffmpeg
+from cutroom.system.ffmpeg import BackgroundFFmpeg, filter_complex_file_args, ffmpeg_info, require_tool, run_ffmpeg
 from cutroom.timeline.model import Timeline
 
 SR = 48000
@@ -294,6 +296,43 @@ def output_size(tl: Timeline, mode: Mode, preview_short: int = 540) -> tuple[int
     return w, h
 
 
+# A run that starts this far into its source seeks to just before it instead of decoding (and
+# discarding) everything before it. Timestamps stay those of a decode from the start
+# (-copyts -start_at_zero) and frames are selected by time, so the same frames are picked.
+SEEK_MIN_S = 4.0
+SEEK_MARGIN_S = 2.0
+
+
+@functools.lru_cache(maxsize=64)
+def _first_frame_tick(path: str, mtime: float, fps: float) -> int:
+    """Output-rate frame number of the source's first decoded video frame, as FFmpeg's fps filter
+    numbers it (timestamps relative to the container start, rounded to the nearest tick). The
+    frame-number selection of a decode from the start counts from it."""
+    import math
+
+    from cutroom.system.ffmpeg import run_ffprobe_json
+
+    j = json.loads(run_ffprobe_json(path, ["-select_streams", "v:0", "-read_intervals", "%+#1",
+                                           "-show_entries", "frame=best_effort_timestamp_time,pts_time:format=start_time"]))
+    fr = (j.get("frames") or [{}])[0]
+    t = fr.get("best_effort_timestamp_time") or fr.get("pts_time")
+    start = float((j.get("format") or {}).get("start_time") or 0.0)
+    return int(math.floor((float(t) - start) * fps + 0.5)) if t is not None else 0
+
+
+def _input_select(inp: Path, run: list[Segment], fps: float) -> tuple[list[str], str]:
+    """Input options and the frame selection for a run: frame numbers from the start of the
+    source, or, after a seek, the same frames by timestamp."""
+    k = run[0].n_in - int(round(SEEK_MARGIN_S * fps))
+    if k / fps < SEEK_MIN_S:
+        return [], "+".join(f"between(n\\,{s.n_in}\\,{s.n_out - 1})" for s in run)
+    f0 = _first_frame_tick(str(inp), inp.stat().st_mtime, fps)
+    k = max(k + f0, 0)
+    # Frame n of a decode from the start is tick n + f0 (time (n + f0) / fps after the fps filter).
+    sel = "+".join(f"between(t\\,{(s.n_in + f0 - 0.5) / fps:.6f}\\,{(s.n_out - 1 + f0 + 0.5) / fps:.6f})" for s in run)
+    return ["-copyts", "-start_at_zero", "-ss", f"{k / fps:.6f}"], sel
+
+
 def render_run(job: Job, tl: Timeline, run: list[Segment], out_path: Path, *, mode: Mode, encoder: str,
                timecode: bool, scratch: Path, on_progress: Callable[[float], None] | None = None,
                overlay: str | None = None, broll: list[dict] | None = None) -> None:
@@ -302,7 +341,7 @@ def render_run(job: Job, tl: Timeline, run: list[Segment], out_path: Path, *, mo
     use_proxy = mode == "preview" and src.proxy and job.abspath(src.proxy).is_file()
     inp = job.abspath(src.proxy) if use_proxy else job.source_path(src)
     w, h = output_size(tl, mode)
-    sel = "+".join(f"between(n\\,{s.n_in}\\,{s.n_out - 1})" for s in run)
+    seek, sel = _input_select(inp, run, fps)
     chain = [f"fps={fps_rational(fps)}", f"select='{sel}'", f"setpts=N/({fps_rational(fps)})/TB"]
     zoom = zoom_filter(run, fps, w, h)
     sw, sh = src.media.primary_video.display_width, src.media.primary_video.display_height
@@ -355,7 +394,7 @@ def render_run(job: Job, tl: Timeline, run: list[Segment], out_path: Path, *, mo
     script = scratch / f"{out_path.stem}.filter"
     script.write_text(graph + "," + ",".join(chain) + "[v]", encoding="utf-8")
     frames = sum(s.frames for s in run)
-    args = ["-y", "-i", str(inp), *extra_inputs, *filter_complex_file_args(script), "-map", "[v]", "-an",
+    args = ["-y", *seek, "-i", str(inp), *extra_inputs, *filter_complex_file_args(script), "-map", "[v]", "-an",
             *_encoder_args(mode, encoder), "-r", fps_rational(fps), "-frames:v", str(frames),
             "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", str(out_path)]
     run_ffmpeg(args, desc=f"render video run ({len(run)} clips from {src.id})",
@@ -829,6 +868,8 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
     rng = (a, b) if span is not None else (0.0, tl.duration)
     use_gfx = any(g.end > rng[0] and g.start < rng[1] for g in tl.graphics)
     cap_share = 0.45 if (use_caps or use_gfx) else 0.0  # share of the progress bar for the overlay
+    abitrate = "384k" if mode == "final" else "160k"
+    aac_job = None
     try:
         wav = scratch / "audio.wav"
         done_audio = state.get("stages", {}).get("audio")
@@ -841,6 +882,18 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
             mark("audio", joins=list(joins), mux=str(mux_wav),
                  extra={k: extra[k] for k in ("audio_chain", "mix") if k in extra})
         lap("audio")
+        # The AAC encoder is single-threaded and slow at 384k (~3x realtime): encode the finished
+        # audio in the background while the overlay and video are drawn and encoded. The mux then
+        # copies it (the same AAC stream as encoding inside the mux, tested).
+        # YouTube asks for MP4s without edit lists. The AAC encoder prepends AAC_PRIMING samples of
+        # priming; dropping the same number from the start of our audio (always head-pad silence)
+        # keeps the decoded audio aligned with the picture without an edit list.
+        aac = scratch / "audio.m4a"
+        if not (state.get("stages", {}).get("aac") and aac.is_file()):
+            aac.unlink(missing_ok=True)
+            aac_job = BackgroundFFmpeg(["-y", "-i", str(mux_wav), "-af", f"atrim=start_sample={AAC_PRIMING},asetpts=PTS-STARTPTS",
+                                        "-c:a", "aac", "-b:a", abitrate, "-ar", str(SR), "-ac", "2",
+                                        str(scratch / "audio.partial.m4a")], desc="encode audio")
         overlay = None
         if use_caps or use_gfx:
             from cutroom.graphics.overlay import caption_check_props
@@ -898,20 +951,22 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
         lap("video")
         concat = scratch / "concat.txt"
         concat.write_text("".join(f"file '{p.name}'\n" for p in parts), encoding="utf-8")
-        abitrate = "384k" if mode == "final" else "160k"
         tmp_out = out_path.with_name(out_path.stem + ".partial.mp4")
-        # YouTube asks for MP4s without edit lists. Video: negative composition offsets keep the
-        # first frame at t=0 without one. Audio: the AAC encoder prepends AAC_PRIMING samples of
-        # priming; dropping the same number from the start of our audio (always head-pad
-        # silence) keeps the decoded audio aligned with the picture without an edit list.
-        run_ffmpeg(["-y", "-f", "concat", "-safe", "0", "-i", str(concat), "-i", str(mux_wav), "-map", "0:v", "-map", "1:a",
-                    "-c:v", "copy", "-af", f"atrim=start_sample={AAC_PRIMING},asetpts=PTS-STARTPTS",
-                    "-c:a", "aac", "-b:a", abitrate, "-ar", str(SR), "-ac", "2",
-                    "-use_editlist", "0", "-movflags", "+faststart+negative_cts_offsets", str(tmp_out)], desc="mux")
+        if aac_job is not None:
+            aac_job.wait()
+            aac_job = None
+            (scratch / "audio.partial.m4a").replace(aac)
+            mark("aac")
+        # Video: negative composition offsets keep the first frame at t=0 without an edit list.
+        run_ffmpeg(["-y", "-f", "concat", "-safe", "0", "-i", str(concat), "-i", str(aac), "-map", "0:v", "-map", "1:a",
+                    "-c", "copy", "-use_editlist", "0", "-movflags", "+faststart+negative_cts_offsets", str(tmp_out)],
+                   desc="mux")
         tmp_out.replace(out_path)
         clicks = detect_clicks(wav, joins)
         lap("mux")
     except BaseException:
+        if aac_job is not None:
+            aac_job.stop()
         # Keep the finished work: the same command resumes (audio, overlay frames, encoded runs).
         msg = (f"render of v{tl.meta.version:03d} {mode}{suffix} interrupted; finished parts kept in "
                f"{scratch.relative_to(job.root)} — run the same command again to resume")

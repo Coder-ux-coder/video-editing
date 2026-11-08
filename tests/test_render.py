@@ -124,3 +124,32 @@ def test_timeline_time_equals_rendered_time_after_many_cuts():
     segs = {s.clip_id: s.out_frame / tl.meta.fps for s in plan_segments(tl)}
     assert max(abs(c.start - segs[c.id]) for c in tl.track_clips()) < 1e-6
     assert abs(tl.duration - sum(s.frames for s in plan_segments(tl)) / tl.meta.fps) < 1e-6
+
+
+@pytest.mark.parametrize("rate,container,offset", [("25", "mp4", None), ("30000/1001", "ts", "1.4"),
+                                                    ("24", "mkv", "0.37")])
+def test_seeking_to_a_late_run_selects_the_same_frames(tmp_path, monkeypatch, rate, container, offset):
+    """A run deep into its source seeks instead of decoding from the start: exactly the same
+    frames, also for another frame rate, B-frames and a container that does not start at 0."""
+    from cutroom.render import engine as E
+
+    src = tmp_path / f"src.{container}"
+    cmd = ["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", f"testsrc2=s=96x54:r={rate}:d=24",
+           "-c:v", "libx264", "-bf", "3", "-g", "48", "-pix_fmt", "yuv420p"]
+    if offset:
+        cmd += ["-output_ts_offset", offset]
+    subprocess.run([*cmd, str(src)], check=True)
+    run = [E.Segment("c1", "S01", 301, 337, 0), E.Segment("c2", "S01", 352, 353, 36),
+           E.Segment("c3", "S01", 410, 480, 37)]
+
+    def frames(min_s: float) -> list[str]:
+        monkeypatch.setattr(E, "SEEK_MIN_S", min_s)
+        seek, sel = E._input_select(src, run, FPS)
+        assert bool(seek) == (min_s < 100)
+        out = subprocess.run(["ffmpeg", "-loglevel", "error", *seek, "-i", str(src), "-vf",
+                              f"fps={FPS},select='{sel}',setpts=N/({FPS})/TB", "-f", "framemd5", "-"],
+                             capture_output=True, text=True, check=True).stdout
+        return [ln.split(",")[-1].strip() for ln in out.splitlines() if ln and not ln.startswith("#")]
+
+    full, seeked = frames(1e9), frames(4.0)
+    assert len(full) == sum(s.frames for s in run) and seeked == full

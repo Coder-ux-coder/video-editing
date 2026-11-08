@@ -7,8 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from cutroom.graphics.framecache import (GLOBAL_LENGTH_COMPONENTS, FrameCache, frame_keys, frame_ranges,
-                                         png_complete)
+from cutroom.graphics.framecache import (GLOBAL_LENGTH_COMPONENTS, FrameCache, frame_keys, png_complete)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -93,10 +92,29 @@ def test_global_length_components_match_the_sources():
     assert "<Sequence" in overlay and "from={g.from}" in overlay   # graphics see local frames only
 
 
-def test_frame_ranges_merge_small_gaps():
-    assert frame_ranges([5, 1, 2, 3, 9]) == [(1, 3), (5, 5), (9, 9)]
-    assert frame_ranges([1, 2, 3, 5, 9], gap=1) == [(1, 5), (9, 9)]
-    assert frame_ranges([]) == []
+def test_caption_frames_key_on_their_animation_state():
+    p = _props(n=30, cues=[_cue(2, ["one", "two"], step=10), _cue(22, ["three"])])
+    st = [None] * 30
+    for f in range(2, 22):
+        st[f] = [0, {"opacity": 1, "active": 0 if f < 12 else 1, "wordScale": 1 if (f - 2) % 10 > 6 else f}]
+    for f in range(22, 28):
+        st[f] = [1, {"opacity": 1, "active": 0, "wordScale": 1}]
+    k = frame_keys(p, "c", st)
+    assert k[9] == k[10] == k[11] and k[19] == k[20] != k[10]   # held still: one frame
+    assert k[3] != k[4] and k[22] != k[10]                      # popping; another cue
+    stale = [None if x is None else [x[0] + 1, x[1]] for x in st]
+    assert frame_keys(p, "c", stale) == frame_keys(p, "c")      # not this cue: frame-relative keys
+    assert frame_keys(p, "c", st[:5]) == frame_keys(p, "c")     # wrong length: ignored
+
+
+def test_captions_draw_time_only_through_caption_state():
+    """The cache keys caption frames on captionState: Captions.jsx must not read the frame otherwise."""
+    src = (ROOT / "graphics" / "src" / "components" / "Captions.jsx").read_text(encoding="utf-8")
+    uses = [ln for ln in src.splitlines() if re.search(r"\bframe\b", ln)
+            and not ln.lstrip().startswith(("*", "//", "/*"))]
+    allowed = ("useCurrentFrame()", "findCue(cues, frame)", "captionState(cue, frame, style, fps)")
+    assert all(any(a in u for a in allowed) for u in uses), [u for u in uses if not any(a in u for a in allowed)]
+    assert "spring(" not in src and "Date" not in src and "random" not in src.lower()
 
 
 def test_cache_links_frames_and_prunes_least_recently_used(tmp_path):
@@ -165,5 +183,6 @@ def test_cached_renders_are_pixel_identical_to_drawing_every_frame(tmp_path):
         out = tmp_path / f"{name}_cached"
         stats.append(render_cached(props, out, cache_dir, tmp_path / f"{name}_scratch", code_key=code, concurrency=2))
         assert same(ref, out) == [], name
+    assert stats[0]["distinct"] < stats[0]["frames"] - 8          # held caption frames drawn once
     assert stats[1]["drawn"] == 0                                 # only moved: nothing to draw
     assert 0 < stats[2]["drawn"] < stats[2]["frames"] // 2        # one word changed: only its cue

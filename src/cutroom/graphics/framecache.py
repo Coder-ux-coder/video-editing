@@ -2,16 +2,19 @@
 
 Every overlay frame (graphics and burned-in captions, drawn by Remotion in headless Chrome) is a
 pure function of what is on screen at that frame. Graphics are drawn inside Remotion Sequences,
-so a graphic sees only its own local frame; captions show at most one cue, which depends only on
-its words, the caption style and the frame relative to the cue's start. So a frame's key is
+so a graphic sees only its own local frame; captions show at most one cue, drawn from its words, the caption style and its animation
+state at that frame (graphics/src/components/captionState.js: opacity, entrance, lit word and its
+pop), which graphics/caption_states.mjs computes for every frame. So a frame's key is
 
     hash(drawing code, output size, fps, theme, caption style)  +  for each item on screen,
     in drawing order: hash(item content without its position in time) + local frame
+    (graphics) or animation state (the caption cue)
 
 and two frames with the same key are pixel-identical. That makes three things free:
 
 - frames with nothing on screen (one transparent frame, drawn once);
-- frames identical within a render;
+- frames identical within a render (a caption holds still between one word's pop and the
+  next word's: those frames are drawn once);
 - frames an earlier render already drew: after a cut, everything after it moves in time but
   looks the same, so a new version only draws the frames that actually changed.
 
@@ -63,8 +66,10 @@ def _cue_content(cue: dict) -> str:
     return _h({"len": cue["to"] - a, "lines": lines, **rest})
 
 
-def frame_keys(props: dict, code_key: str) -> list[str]:
-    """One key per overlay frame (0 .. durationInFrames-1); equal keys mean identical pixels."""
+def frame_keys(props: dict, code_key: str, cap_states: list | None = None) -> list[str]:
+    """One key per overlay frame (0 .. durationInFrames-1); equal keys mean identical pixels.
+    ``cap_states`` (from caption_states.mjs: per frame null or [cue index, state]) keys caption
+    frames on their animation state; without it, on the frame relative to the cue's start."""
     n = int(props["durationInFrames"])
     cap = props.get("captions") or None
     base = _h({"code": code_key, "w": props["width"], "h": props["height"], "fps": props["fps"],
@@ -82,27 +87,22 @@ def frame_keys(props: dict, code_key: str) -> list[str]:
         gfx.append((g["from"], g["from"] + dur, _h(content)))
     cues = cap.get("cues", []) if cap else []
     cue_h: dict[int, str] = {}
+    cue_i = {id(c): i for i, c in enumerate(cues)}
+    if cap_states is not None and len(cap_states) != n:
+        cap_states = None
     keys = []
     for f in range(n):
         items = [(h, f - a) for a, b, h in gfx if a <= f < b]
         c = _find_cue(cues, f) if cues else None
         if c is not None:
             ch = cue_h.get(id(c)) or cue_h.setdefault(id(c), _cue_content(c))
-            items.append((ch, f - c["from"]))
+            st = cap_states[f] if cap_states is not None else None
+            if st is not None and st[0] == cue_i[id(c)]:
+                items.append((ch, ["state", st[1]]))
+            else:
+                items.append((ch, f - c["from"]))
         keys.append(hashlib.sha1((base + json.dumps(items, separators=(",", ":"))).encode()).hexdigest()[:32])
     return keys
-
-
-def frame_ranges(frames: list[int], gap: int = 0) -> list[tuple[int, int]]:
-    """Sorted frames → inclusive (first, last) ranges, merging runs separated by ≤ ``gap`` frames
-    (drawing a few extra frames is cheaper than starting another pass)."""
-    out: list[list[int]] = []
-    for f in sorted(set(frames)):
-        if out and f - out[-1][1] <= gap + 1:
-            out[-1][1] = f
-        else:
-            out.append([f, f])
-    return [(a, b) for a, b in out]
 
 
 def png_complete(path: Path) -> bool:
@@ -209,60 +209,76 @@ def max_cache_bytes() -> int:
     return int(gb * 1024 ** 3)
 
 
+def _caption_states(props: dict, scratch: Path) -> list | None:
+    """Caption animation state per frame (None: key caption frames on their local frame)."""
+    if not ((props.get("captions") or {}).get("cues")):
+        return None
+    from cutroom.graphics.remotion import caption_states
+
+    try:
+        return caption_states(props, scratch)
+    except Exception:                                     # still exact, only fewer frames shared
+        return None
+
+
 def render_cached(props: dict, out_dir: Path, cache_dir: Path, scratch: Path, *, code_key: str,
-                  concurrency: int | None = None, on_progress=None, gap: int = 4) -> dict:
+                  concurrency: int | None = None, on_progress=None) -> dict:
     """Lay out every overlay frame of ``props`` in ``out_dir`` (NNNNNN.png), drawing with Remotion
-    only the frames whose key is not cached yet, each distinct one once. Frames left in
-    ``out_dir`` by an interrupted attempt are kept when complete. Returns counts."""
+    only the frames whose key is not cached yet, each distinct one once, in one pass (the Overlay
+    composition's ``frameMap``: output frame i is composition frame need[i]). Complete frames left
+    by an interrupted attempt are kept. Returns counts."""
     from cutroom.graphics.remotion import normalize_alpha, render_overlay
 
-    keys = frame_keys(props, code_key)
     scratch.mkdir(parents=True, exist_ok=True)
+    keys = frame_keys(props, code_key, _caption_states(props, scratch))
     cache = FrameCache(cache_dir)
+    draw_dir, draw_map = scratch / "overlay_draw", scratch / "overlay_draw.json"
 
-    def frame_no(p: Path) -> int | None:
-        try:
-            f = int(p.stem)
-        except ValueError:
-            return None
-        return f if 0 <= f < len(keys) else None
-
-    if out_dir.is_dir():                                  # frames finished by an interrupted attempt
-        for p in out_dir.glob("*.png"):
+    def keep_finished(folder: Path, key_of) -> None:
+        """Adopt the complete frames an interrupted attempt left in ``folder``."""
+        if not folder.is_dir():
+            return
+        for p in folder.glob("*.png"):
             if not png_complete(p):
                 p.unlink()
-        normalize_alpha(out_dir)
-        for p in out_dir.glob("*.png"):
-            f = frame_no(p)
-            if f is not None:
-                cache.adopt(p, keys[f])
-        shutil.rmtree(out_dir)
+        normalize_alpha(folder)
+        for p in folder.glob("*.png"):
+            try:
+                k = key_of(int(p.stem))
+            except (ValueError, IndexError):
+                continue
+            if k is not None:
+                cache.adopt(p, k)
+        shutil.rmtree(folder)
+
+    keep_finished(out_dir, lambda f: keys[f] if 0 <= f < len(keys) else None)
+    if draw_map.is_file():
+        try:
+            mapped = json.loads(draw_map.read_text(encoding="utf-8"))
+            keep_finished(draw_dir, lambda i: mapped[i])
+        except ValueError:
+            pass
+        draw_map.unlink(missing_ok=True)
+    shutil.rmtree(draw_dir, ignore_errors=True)
     need: dict[str, int] = {}
     for f, k in enumerate(keys):
         if k not in need and not cache.has(k):
             need[k] = f
-    drawn = 0
-    present: set[int] = set()
     if need:
-        # A new pass costs about as much as drawing a few frames: draw small gaps through.
-        ranges = frame_ranges(list(need.values()), gap=gap)
-        drawn = sum(b - a + 1 for a, b in ranges)
-        render_overlay(props, out_dir, composition="Overlay", concurrency=concurrency, on_progress=on_progress,
-                       scratch=scratch, ranges=ranges)
-        for p in out_dir.glob("*.png"):                   # Remotion finished: every file is complete
-            f = frame_no(p)
-            if f is not None:
-                cache.adopt(p, keys[f])
-                present.add(f)
-    else:
-        out_dir.mkdir(parents=True, exist_ok=True)
-        if on_progress:
-            on_progress(1.0)
-    first = next(iter(out_dir.glob("*.png")), None)
-    width = len(first.stem) if first else max(6, len(str(len(keys) - 1)))
+        frames = list(need.values())
+        draw_map.write_text(json.dumps(list(need)), encoding="utf-8")
+        render_overlay(props, draw_dir, composition="Overlay", concurrency=concurrency, on_progress=on_progress,
+                       scratch=scratch, frame_map=frames)
+        for p in draw_dir.glob("*.png"):                  # Remotion finished: every file is complete
+            cache.adopt(p, keys[frames[int(p.stem)]])
+        shutil.rmtree(draw_dir)
+        draw_map.unlink()
+    elif on_progress:
+        on_progress(1.0)
+    out_dir.mkdir(parents=True)
+    width = max(6, len(str(len(keys) - 1)))
     for f, k in enumerate(keys):
-        if f not in present:
-            cache.place(k, out_dir / f"{f:0{width}d}.png")
+        cache.place(k, out_dir / f"{f:0{width}d}.png")
     cache.touch(keys)
     cache.prune(max_cache_bytes(), keep=set(keys))
-    return {"frames": len(keys), "distinct": len(set(keys)), "drawn": drawn, "reused": len(keys) - len(present)}
+    return {"frames": len(keys), "distinct": len(set(keys)), "drawn": len(need), "reused": len(keys) - len(need)}

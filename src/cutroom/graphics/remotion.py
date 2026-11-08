@@ -54,10 +54,13 @@ def browser_executable() -> str | None:
 def render_overlay(props: dict, out_dir: Path, *, composition: str = "Captions", concurrency: int | None = None,
                    on_progress: Callable[[float], None] | None = None, scratch: Path | None = None,
                    frames: list[int] | None = None, frame_range: tuple[int, int] | None = None,
-                   keep_existing: bool = False, ranges: list[tuple[int, int]] | None = None) -> dict:
+                   keep_existing: bool = False, frame_map: list[int] | None = None) -> dict:
     """Render ``composition`` with ``props`` to ``out_dir`` as NNNN.png frames (transparent).
-    With ``frames``, render only those frames as stills named <frame>.png. With ``ranges``
-    (inclusive frame ranges), render only those, in one browser session."""
+    With ``frames``, render only those frames as stills named <frame>.png. With ``frame_map``
+    (Overlay only), output frame i is composition frame frame_map[i], drawn in one pass."""
+    if frame_map is not None:
+        props = {**props, "frameMap": [int(f) for f in frame_map]}
+        frame_range = (0, len(frame_map) - 1)
     g = ensure_installed()
     node = node_path()
     scratch = scratch or out_dir.parent
@@ -73,10 +76,6 @@ def render_overlay(props: dict, out_dir: Path, *, composition: str = "Captions",
         cmd += ["--frames", ",".join(str(int(f)) for f in frames)]
     if frame_range:
         cmd += ["--from", str(int(frame_range[0])), "--to", str(int(frame_range[1]))]
-    if ranges:
-        rf = scratch / f"{composition.lower()}_ranges.txt"
-        rf.write_text(",".join(f"{int(a)}-{int(b)}" for a, b in ranges), encoding="utf-8")
-        cmd += ["--ranges-file", str(rf)]
     b = browser_executable()
     if b:
         cmd += ["--browser", b]
@@ -110,6 +109,19 @@ def render_overlay(props: dict, out_dir: Path, *, composition: str = "Captions",
         raise CutroomError(f"Remotion render of {composition} failed.", fix=fix, details=detail)
     result["opaque_frames_fixed"] = normalize_alpha(out_dir)
     return result
+
+
+def caption_states(props: dict, scratch: Path) -> list:
+    """Per overlay frame: None, or [cue index, caption animation state] (caption_states.mjs)."""
+    g = ensure_installed()
+    scratch.mkdir(parents=True, exist_ok=True)
+    src, dst = scratch / "caption_state_props.json", scratch / "caption_states.json"
+    src.write_text(json.dumps(props), encoding="utf-8")
+    r = subprocess.run([str(node_path()), str(g / "caption_states.mjs"), "--props", str(src), "--out", str(dst)],
+                       cwd=g, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    if r.returncode != 0:
+        raise CutroomError("Could not compute caption states.", details=(r.stderr or "")[-2000:])
+    return json.loads(dst.read_text(encoding="utf-8"))
 
 
 def normalize_alpha(out_dir: Path) -> int:

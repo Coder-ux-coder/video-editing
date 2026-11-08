@@ -259,6 +259,7 @@ def run_ffmpeg(
     on_progress: Callable[[float], None] | None = None,
     timeout: float | None = None,
     cwd: str | os.PathLike | None = None,
+    _popen: Callable[..., subprocess.Popen] | None = None,
 ) -> str:
     """Run ffmpeg with ``args`` (everything after the binary name).
 
@@ -272,7 +273,7 @@ def run_ffmpeg(
            *[str(a) for a in args]]
     from cutroom.system.procs import popen_group, stop_tree
 
-    proc = popen_group(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd,
+    proc = (_popen or popen_group)(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd,
                        text=True, encoding="utf-8", errors="replace")
     stderr_lines: deque[str] = deque(maxlen=4000)
 
@@ -309,6 +310,48 @@ def run_ffmpeg(
     if on_progress:
         on_progress(1.0)
     return stderr
+
+
+class BackgroundFFmpeg:
+    """An FFmpeg run in a background thread (work that overlaps other stages). ``wait()``
+    returns as :func:`run_ffmpeg` would, raising its error; ``stop()`` ends it early."""
+
+    def __init__(self, args: Sequence[str | os.PathLike], *, desc: str = "ffmpeg"):
+        self._error: BaseException | None = None
+        self._stopped = threading.Event()
+        self._procs: list[subprocess.Popen] = []
+        from cutroom.system import procs
+
+        real = procs.popen_group
+
+        def track(cmd, **kw):
+            p = real(cmd, **kw)
+            self._procs.append(p)
+            if self._stopped.is_set():
+                procs.stop_tree(p)
+            return p
+
+        def work() -> None:
+            try:
+                run_ffmpeg(args, desc=desc, _popen=track)
+            except BaseException as e:            # re-raised by wait()
+                self._error = e
+
+        self._thread = threading.Thread(target=work, daemon=True, name=desc)
+        self._thread.start()
+
+    def wait(self) -> None:
+        self._thread.join()
+        if self._error is not None:
+            raise self._error
+
+    def stop(self) -> None:
+        from cutroom.system.procs import stop_tree
+
+        self._stopped.set()
+        for p in self._procs:
+            stop_tree(p)
+        self._thread.join(timeout=15)
 
 
 def run_ffprobe_json(path: str | os.PathLike, extra: Sequence[str] = ()) -> str:

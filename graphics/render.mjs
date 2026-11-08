@@ -70,43 +70,29 @@ const main = async () => {
 			width: composition.width, height: composition.height, fps: composition.fps}));
 		return;
 	}
-	// --ranges a-b,c-d (or --ranges-file holding that text): only these inclusive frame ranges, in one browser session (frames that
-	// are already cached are not drawn again). Otherwise --from/--to, or the whole composition.
-	const rangeSpec = args['ranges-file'] ? readFileSync(args['ranges-file'], 'utf-8').trim() : args.ranges;
-	const ranges = rangeSpec
-		? rangeSpec.split(',').map((r) => r.split('-').map(Number))
-		: [[args.from ? Number(args.from) : 0, args.to ? Number(args.to) : composition.durationInFrames - 1]];
-	const total = ranges.reduce((s, [a, b]) => s + b - a + 1, 0);
+	const from = args.from ? Number(args.from) : 0;
+	const to = args.to ? Number(args.to) : composition.durationInFrames - 1;
+	const total = to - from + 1;
 	let last = 0;
-	let before = 0;
 	const t0 = Date.now();
-	const browser = ranges.length > 1 ? await openBrowser('chrome', {browserExecutable, logLevel: 'error'}) : null;
-	try {
-		for (const [from, to] of ranges) {
-			await renderFrames({
-				composition, serveUrl, inputProps, browserExecutable,
-				...(browser ? {puppeteerInstance: browser} : {}),
-				outputDir: args.out,
-				imageFormat: 'png',
-				frameRange: [from, to],
-				concurrency: args.concurrency ? Number(args.concurrency) : null,
-				imageSequencePattern: '[frame].[ext]',
-				logLevel: 'error',
-				onStart: () => {},
-				onFrameUpdate: (done) => {
-					const p = (before + done) / total;
-					if (p - last >= 0.01 || before + done === total) {
-						last = p;
-						console.log(JSON.stringify({progress: Number(p.toFixed(3))}));
-					}
-				},
-			});
-			before += to - from + 1;
-		}
-	} finally {
-		if (browser) await browser.close({silent: true});
-	}
-	console.log(JSON.stringify({done: true, frames: total, ranges: ranges.length, seconds: (Date.now() - t0) / 1000,
+	await renderFrames({
+		composition, serveUrl, inputProps, browserExecutable,
+		outputDir: args.out,
+		imageFormat: 'png',
+		frameRange: [from, to],
+		concurrency: args.concurrency ? Number(args.concurrency) : null,
+		imageSequencePattern: '[frame].[ext]',
+		logLevel: 'error',
+		onStart: () => {},
+		onFrameUpdate: (done) => {
+			const p = done / total;
+			if (p - last >= 0.01 || done === total) {
+				last = p;
+				console.log(JSON.stringify({progress: Number(p.toFixed(3))}));
+			}
+		},
+	});
+	console.log(JSON.stringify({done: true, frames: total, seconds: (Date.now() - t0) / 1000,
 		width: composition.width, height: composition.height, fps: composition.fps}));
 };
 
