@@ -55,7 +55,9 @@ const Word = ({w, frame, style, active, fps, fontSize}) => {
 	if (active && style.wordPop) {
 		const p = spring({frame: frame - w.from, fps, durationInFrames: style.wordPopFrames ?? 6,
 			config: {damping: 14, stiffness: 180}});
-		scale = interpolate(p, [0, 1], [1 + style.wordPop, 1]);
+		// Grow into place (from smaller) rather than shrink from larger: a word scaled above 1 covers
+		// the spaces beside it ("MYSURPRISE,"), and the pop lights up a new word every few frames.
+		scale = Math.min(1, interpolate(p, [0, 1], [1 - style.wordPop, 1]));
 	}
 	if (w.emph && style.emphasisScale) scale *= style.emphasisScale;
 	const showBox = active && style.activeBox;
