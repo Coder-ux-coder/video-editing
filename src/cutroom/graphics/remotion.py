@@ -54,9 +54,10 @@ def browser_executable() -> str | None:
 def render_overlay(props: dict, out_dir: Path, *, composition: str = "Captions", concurrency: int | None = None,
                    on_progress: Callable[[float], None] | None = None, scratch: Path | None = None,
                    frames: list[int] | None = None, frame_range: tuple[int, int] | None = None,
-                   keep_existing: bool = False) -> dict:
+                   keep_existing: bool = False, ranges: list[tuple[int, int]] | None = None) -> dict:
     """Render ``composition`` with ``props`` to ``out_dir`` as NNNN.png frames (transparent).
-    With ``frames``, render only those frames as stills named <frame>.png."""
+    With ``frames``, render only those frames as stills named <frame>.png. With ``ranges``
+    (inclusive frame ranges), render only those, in one browser session."""
     g = ensure_installed()
     node = node_path()
     scratch = scratch or out_dir.parent
@@ -72,6 +73,10 @@ def render_overlay(props: dict, out_dir: Path, *, composition: str = "Captions",
         cmd += ["--frames", ",".join(str(int(f)) for f in frames)]
     if frame_range:
         cmd += ["--from", str(int(frame_range[0])), "--to", str(int(frame_range[1]))]
+    if ranges:
+        rf = scratch / f"{composition.lower()}_ranges.txt"
+        rf.write_text(",".join(f"{int(a)}-{int(b)}" for a, b in ranges), encoding="utf-8")
+        cmd += ["--ranges-file", str(rf)]
     b = browser_executable()
     if b:
         cmd += ["--browser", b]

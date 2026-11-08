@@ -198,6 +198,13 @@ of the edit), `versions`, `undo`, `checkout`, `snapshot`. Field reference: `docs
 - **Captions and graphics** [built]: Python plans what to draw (props JSON); Remotion
   (React, `graphics/`) draws transparent PNG frames in headless Chrome (`graphics/render.mjs`,
   bundle cached by source hash); FFmpeg overlays them inside each video run, so no extra encode.
+  Overlay frames are cached (`graphics/framecache.py`): a frame's key hashes the drawing code,
+  size, fps, theme and caption style plus, for each item on screen, its content without its place
+  in time and its local frame (graphics draw inside Sequences; a caption cue's word times are
+  relative to its start). Equal keys are identical pixels, so blank and repeated frames are drawn
+  once, and after an edit only frames whose content changed are drawn (only those frame ranges are
+  passed to Remotion, in one browser). Frames are hard-linked into `renders/.overlay-cache`,
+  pruned least recently used past `CUTROOM_OVERLAY_CACHE_GB` (default 3).
   FFmpeg stays the single master compositor; the graphics engine only draws. One "Overlay"
   composition draws every graphic (sorted by z) with captions on top; graphics that hide
   captions (kinetic text, title cards) trim the cues they overlap. Fully opaque frames are
@@ -227,8 +234,8 @@ of the edit), `versions`, `undo`, `checkout`, `snapshot`. Field reference: `docs
   range, encoder, captions, voice chain, Cutroom version and a hash of the Remotion sources).
   Finished stages are recorded as they complete (edit audio and mix, overlay frames, each
   encoded run). If the render fails or is interrupted the folder is kept and the same command
-  resumes: audio is reused, overlay frames continue from the first missing one (the last one
-  found is redrawn, it may be truncated), encoded runs are skipped. Any other plan, or a
+  resumes: audio is reused, complete overlay frames are kept (a truncated PNG is redrawn),
+  encoded runs are skipped. Any other plan, or a
   corrupt state file, starts clean. The folder is removed only after a successful mux. Every
   report carries `timings_s` per stage.
 

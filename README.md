@@ -102,7 +102,8 @@ is `jobs/<id>/log.md`; every version is in `jobs/<id>/versions/` (`cutroom versi
 
 Environment variables: `CUTROOM_JOBS_DIR` (put jobs on a bigger drive), `CUTROOM_MODELS_DIR`,
 `CUTROOM_FFMPEG_DIR` (use a specific FFmpeg), `CUTROOM_BROWSER` (a Chrome Headless Shell for
-Remotion, if not the one setup installed).
+Remotion, if not the one setup installed), `CUTROOM_OVERLAY_CACHE_GB` (size cap of each job's
+overlay frame cache, default 3).
 
 ## Develop
 

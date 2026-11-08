@@ -146,13 +146,17 @@ def test_overlay_frames_resume_after_a_crash_mid_overlay(monkeypatch, jobs_base,
         render(job, tl, mode="preview", timecode=False)
     scratch = job.root / "renders" / f".tmp_v{tl.meta.version:03d}_preview"
     frames = sorted((scratch / "overlay").glob("*.png"))
-    assert len(frames) == 175 and (scratch / "overlay.done").is_file()
-    for p in frames[80:]:                       # as if the overlay render died at frame 80
+    assert len(frames) == 175
+    # As if the overlay render died at frame 80: the later frames were never drawn or cached.
+    import shutil
+    shutil.rmtree(job.root / "renders" / ".overlay-cache")
+    for p in frames[80:]:
         p.unlink()
-    (scratch / "overlay.done").unlink()
     _failing_runs(monkeypatch, fail_at=None)
     rep = render(job, tl, mode="preview", timecode=False)
     assert rep["resumed"] and all(rep["checks"].values()), rep
+    fc = rep["overlay_frames"]
+    assert 0 < fc["drawn"] <= 95 and fc["reused"] >= 80, fc   # frames 0-79 kept, not redrawn
     resumed = _decode(job.root / rep["path"])
     clean = render(job, tl, mode="preview", timecode=False, out_path=job.root / "renders" / "clean.mp4")
     assert "resumed" not in clean

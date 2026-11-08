@@ -16,6 +16,7 @@ import functools
 import json
 import sys
 import math
+import shutil
 import subprocess
 import time
 from dataclasses import dataclass
@@ -557,10 +558,14 @@ def overlay_frames(job: Job, tl: Timeline, w: int, h: int, total_frames: int, sc
                    concurrency: int | None, *, captions: bool, span: tuple[float, float] | None,
                    on_progress=None, resume: bool = False) -> tuple[str, Path, dict]:
     """Render graphics and captions with Remotion in one pass; returns (FFmpeg pattern, frames dir, props).
-    With ``resume``, frames already rendered by an interrupted render are kept and only the rest
-    is drawn (the last frame found is redrawn: it may have been cut off)."""
+
+    Frames go through the job's overlay frame cache (graphics/framecache.py): a frame whose
+    content was drawn before (by this render or an earlier one, any version) is reused, and
+    only the missing ones are drawn, each distinct frame once. Frames an interrupted attempt
+    finished are kept (``resume`` is accepted for compatibility; resuming is always on)."""
+    from cutroom.graphics.framecache import CACHE_DIRNAME, render_cached
     from cutroom.graphics.overlay import overlay_props
-    from cutroom.graphics.remotion import frame_pattern, render_overlay
+    from cutroom.graphics.remotion import frame_pattern
     from cutroom.style import timeline_style
 
     style_doc = timeline_style(tl)
@@ -568,23 +573,8 @@ def overlay_frames(job: Job, tl: Timeline, w: int, h: int, total_frames: int, sc
     props = overlay_props(tl, style_doc, width=w, height=h, fps=tl.meta.fps, total_frames=total_frames,
                           job_root=job.root, captions=captions, t0=t0, t1=t1)
     out_dir = scratch / "overlay"
-    have = sorted(out_dir.glob("*.png")) if resume and out_dir.is_dir() else []
-    n = props["durationInFrames"]
-    if have and len(have) >= n and (scratch / "overlay.done").is_file():
-        pass                                              # complete from an earlier attempt
-    elif have:
-        nums = sorted(int(p.stem) for p in have)
-        first_missing = next((k for k, v in enumerate(nums) if k != v), len(nums))
-        start = max(0, first_missing - 1)                 # redraw the last one: it may be truncated
-        for p in have:
-            if int(p.stem) >= start:
-                p.unlink()
-        render_overlay(props, out_dir, composition="Overlay", concurrency=concurrency, on_progress=on_progress,
-                       scratch=scratch, frame_range=(start, n - 1), keep_existing=True)
-    else:
-        render_overlay(props, out_dir, composition="Overlay", concurrency=concurrency, on_progress=on_progress,
-                       scratch=scratch)
-    (scratch / "overlay.done").write_text("ok", encoding="utf-8")
+    props["frame_cache"] = render_cached(props, out_dir, job.root / "renders" / CACHE_DIRNAME, scratch,
+                                         code_key=_graphics_key(), concurrency=concurrency, on_progress=on_progress)
     pattern, _ = frame_pattern(out_dir)
     return pattern, out_dir, props
 
@@ -755,6 +745,11 @@ def check_caption_sync(wav: Path, props: dict, *, max_ms: float = 80.0, joins_s:
         word_t = c["lines"][0][0]["from"] / fps
         w_end = max(word_t + 0.03, min(c["lines"][0][0]["to"] / fps, word_t + 0.15))
         i0, i1 = int(word_t / 0.005), int(w_end / 0.005)
+        if i0 >= len(env):
+            # Past the end of the audio: captions timed for a longer, earlier edit (a cut made
+            # after `captions`). Nothing to measure; review reports them as captions.stale.
+            prev_end = c["lines"][-1][-1]["to"] / fps
+            continue
         if i1 > i0 and float(np.max(env[i0:i1])) < thr + 3.0:
             # The first word is barely above the noise ("But" mumbled before a pause): its onset
             # cannot be measured, and the next loud word would be mistaken for it.
@@ -855,6 +850,7 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
                 span=(a, b) if span is not None else None, resume=resuming,
                 on_progress=(lambda f: on_progress(f * cap_share)) if on_progress else None)
             lap("overlay")
+            extra["overlay_frames"] = props["frame_cache"]
             cprops = caption_check_props(props)
             if cprops:
                 extra["captions"] = {**tl.captions.stats, "style": tl.captions.style, "cues": len(tl.captions.cues),
