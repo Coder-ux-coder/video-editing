@@ -168,6 +168,20 @@ Conclusions:
 | Ready = no blocker and no major | Minors and polish are reported with fixes; the loop never claims taste. The report ends with what automation cannot judge, and the agent must look at the contact sheets. |
 | A review reuses the render of the same version | Versions are immutable, so a render of vNNN is still valid; this halves the loop's render time. |
 
+### 4.8 Phase 5 decisions
+
+| Decision | Why / evidence |
+|---|---|
+| A Short is its own job (`<job>.short-NN`) referencing the parent's media and sharing its analysis by hard links | Every tool (captions, graphics, review, render) works on a Short unchanged; no media copies; the Short has its own version history and review. Name fixes in the parent propagate to its Shorts. |
+| Moments come from the cleaned edit in natural speech order | The long-form edit's cold open moved the key finding away from its context; the first finder (edit order) produced "…the finding… My name is Dan Odess." In speech order the same finder opens Short 1 on the finding and ends on its payoff. |
+| The finder proposes, the agent chooses | Scores (first line, ending, length, topic, substance) with reasons; in the acceptance 2 of 5 picks were used as proposed and 3 were moved by the agent to self-contained openings and payoffs. Heuristics cannot judge a story; they make the agent's reading fast and the reasons visible. |
+| Vertical framing per clip, per source shot | Still crop on a steady face (most of the interview), speed-limited follow on a moving one, a hard jump at every source camera change (a smoothed pan across a camera change looked like a mistake), blurred-fill layout for no face or a two-shot. Crop via FFmpeg `crop` with per-frame expressions in the existing runs; frame-exact (tested). |
+| Hook headline in the speaker's words; fill layout when it would touch the face | A headline over the face-tracked crop covered 21 % of the head in the first test (measured on pixels). Opening on the blurred-fill layout (frame in the middle, headline above) for the hook's seconds is the common Shorts pattern and keeps the face clear; the layout switch lands in a real pause between words. |
+| No punch-ins on vertical Shorts; jump cuts accepted | The crop is the framing; punch-in would replace it. Jump cuts are the accepted Shorts style, so the review does not flag them there. |
+| Caption sync on very short media | With 7 measurable captions one outlier decided the verdict; Shorts (< 20 measurable) tolerate one miss up to 200 ms. |
+| An issue can be accepted with a reason | Short 3 keeps a 0.26 s flash shot whose sliver holds "But did": trimming changes the words, lengthening brings back a filler. The editor's acceptance and reason are written into every later report; a J-cut would fix it properly (not supported yet). |
+| `fix-words` for misheard names | "white sand" (low confidence) for "White Sands" reached the captions; corrections keep timing, are re-applied when words are rebuilt, and propagate to Shorts. |
+
 ## 5. Decisions you made
 
 | Date | Question | Your answer | Consequence |

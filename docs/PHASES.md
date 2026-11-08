@@ -306,3 +306,69 @@ each defect type in a synthetic timeline and checks it is found, fixable and sco
 **Next: Phase 5** (Shorts): moment finding and scoring, 9:16 reframing with a smoothed face
 track or blurred fill, hook text, captions in the Shorts safe zone, titles and descriptions.
 Acceptance: 5 Shorts from the interview.
+
+## Phase 5: Shorts (2026-11-08)
+
+**Built**
+
+- `shorts-find`: whole-sentence windows of the cleaned edit in speech order, scored for the first
+  line (no reference to unseen context, strong words, a question or a number), a complete ending
+  (not an open question), length (20–58 s by default), one topic (preferring topics marked as
+  Short candidates) and substance; reasons listed; non-overlapping picks.
+- `short-create`: a Short is its own job `<job>.short-NN` (media referenced, analysis hard-linked),
+  1080x1920, framed per clip and per source shot: still crop on a steady face, speed-limited
+  follow on a moving one, a cut at each camera change, blurred-fill layout when there is no single
+  clear face. Renderer: per-frame `crop` expressions and a blur/overlay fill graph in the existing
+  runs, frame-exact.
+- `short-hook`: headline in the speaker's own words (sourced, new `headline` template); the opening
+  switches to the blurred-fill layout when the headline would touch the face, at a real pause.
+- Captions in the Shorts safe zone; graphics placement and face checks mapped through the crop;
+  Shorts safe area for graphics; review checks for Short length and faces cut by the crop.
+- `short-publish`: agent task + check (title ≤ 100, 3–5 hashtags starting `#Shorts`, numbers said in
+  the Short, brief's credit line, no hype). `shorts`: batch of the above.
+- Also: `fix-words` (misheard names, timing kept, re-applied on rebuild, propagated to Shorts),
+  `review --accept` (an editor's judgement with its reason, shown in every report), a fair
+  caption-sync verdict for very short media. Playbook `08_shorts.md`.
+
+**Bugs found and fixed on the way**
+
+- Moments in edit order split the key finding from its context (cold open) → speech order.
+- "That's the first one…" scored as a good opening (contraction not recognised as a
+  back-reference); questions at the end scored as good endings.
+- A smoothed crop panned across a source camera change → framing per shot with a hard jump.
+- The hook headline covered 21 % of the head and crossed the Shorts safe area (measured on
+  pixels) → blurred-fill opening, kinetic text kept inside its box, smaller headline type.
+- The hook's layout switch landed between two touching words (mid-word cut).
+- Panel drop shadows counted as graphic pixels in the safe-area check.
+- `punch-in` would have replaced a Short's crop → refused on vertical timelines.
+- "white sand" (for White Sands) in the captions of the long-form and Short 3 → `fix-words`.
+
+**Acceptance run: five Shorts from the interview** (`scripts/acceptance/phase5_shorts.sh`)
+
+| Short | Source range | Length | Opening line | Hook (layout) | Review |
+|---|---|---|---|---|---|
+| 1 The White Sands finding | 0:50–1:43 | 47.5 s | "The most significant finding is…" | "People were here longer than we thought" (fill) | ready |
+| 2 Tracks everywhere | 2:18–3:02 | 37.6 s | "What surprises me is just how common these things are out here." | "Archaeologists typically don't look for tracks" (crop) | ready |
+| 3 Did humans cause the extinction? | 4:54–5:41 | 39.3 s | "I think in the past people have said…" | "Did humans cause the extinction?" (fill) | ready, 1 flash shot accepted with reason |
+| 4 Sloths, mammoths and people | 6:02–6:27 | 20.1 s | "We've published papers where we see ground sloths…" | "Ground sloths reacting to human tracks" (crop) | ready |
+| 5 Kids at the lake | 3:04–3:32 | 26.7 s | "The other thing that's surprising…" | "Tracks from kids, including toddlers" (crop) | ready |
+
+The finder's picks 1 and 2 were used (1 extended to its payoff); 3–5 were chosen by the agent for
+self-contained openings and endings after reading the reasons. Every crop keeps the face in frame
+(checked on the sheets and by `short.face_cropped`). Final renders 1080x1920, all checks pass:
+−14.1/−14.2 LUFS, −1.9 dBTP, captions 0 frames outside the Shorts safe zone, sync passes, 0 clicks;
+8 min for all five (2:51 of Shorts) on 4 cores. Publishing texts written and checked for all five.
+
+**Tested**: 190 automated tests (179 fast + 11 slow, all passing), including a frame-exact vertical
+render mixing crop and fill layouts, framing rules, scoring rules, derived jobs, publishing checks
+and word corrections.
+
+**Known limits**
+
+- No J/L cuts: a flash shot whose sliver holds a word can only be accepted.
+- One speaker per Short in practice: two-shots use the fill layout; no active-speaker switching
+  (needs diarization, now Phase 8).
+- Moment scoring is a heuristic; the agent's reading decides (3 of 5 picks were changed here).
+- Final 1080x1920 renders spend most time drawing caption frames in Chrome.
+
+**Next: Phase 6** (b-roll, music, SFX, thumbnails).

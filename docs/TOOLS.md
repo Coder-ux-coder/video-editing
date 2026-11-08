@@ -13,6 +13,7 @@ Commands provided by modules in `src/cutroom/tools/` (see `registry.py`).
 | command | group | what it does | writes a new timeline version | tests |
 |---|---|---|---|---|
 | `analyze` | analysis | Run all perception on a job and write analysis/summary.md. | no | `tests/test_analysis.py` |
+| `fix-words` | analysis | Correct misheard words (names, terms) in the transcript, keeping their timing. | no | `tests/test_analysis.py` |
 | `frames` | analysis | Labelled frame grid at chosen times: visual evidence on demand. | no | `tests/test_analysis.py` |
 | `topics` | analysis | Prepare or check the topic-map task (agent-in-the-loop). | no | `tests/test_analysis.py` |
 | `audio` | audio | Plan the voice chain and loudness target from the audio analysis. | yes | `tests/test_audio.py` |
@@ -36,6 +37,11 @@ Commands provided by modules in `src/cutroom/tools/` (see `registry.py`).
 | `transition` | graphics | Put an overlay transition (dip, flash, whip, swipe, glitch) on a cut. | yes | `tests/test_graphics.py` |
 | `render` | render | Render a timeline version (fast preview or full-quality final). | no | `tests/test_render.py` |
 | `review` | review | Review a version: render, automatic checks, frame sheets, report and scorecard; --fix loops. | yes | `tests/test_review.py` |
+| `short-create` | shorts | Create a 9:16 Short job from a picked moment or a timeline range. | yes | `tests/test_shorts.py` |
+| `short-hook` | shorts | Open a Short on its hook: headline in the speaker's words, never over the face. | yes | `tests/test_shorts.py` |
+| `short-publish` | shorts | Title, description and hashtags for a Short: agent task and check. | no | `tests/test_shorts.py` |
+| `shorts` | shorts | Batch: find N Shorts, create them, caption them for 9:16, add the hook headline. | yes | `tests/test_shorts.py` |
+| `shorts-find` | shorts | Score self-contained moments in an edit as Short candidates. | no | `tests/test_shorts.py` |
 | `assemble` | timeline | Create the first timeline: every main source, whole, in order. | yes | `tests/test_timeline.py` |
 | `checkout` | timeline | Set HEAD to any version (later edits branch from it). | no | `tests/test_timeline.py` |
 | `diff` | timeline | Human-readable change summary between two timeline versions. | no | `tests/test_timeline.py` |
@@ -206,6 +212,22 @@ Parameters:
 
 - `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
 - `ARGS...`: FFmpeg arguments after `--`, e.g. -- -i source/S01.mp4 -t 5 renders/x.mp4
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom fix-words`
+
+Fix a name or term the speech model got wrong (found in transcript review, or a
+⟨?low-confidence?⟩ word). Every occurrence (or the one near --at) is replaced over the same
+time span, recorded in corrections.json (re-applied if words are rebuilt) and copied to
+Shorts derived from this job. Re-plan captions afterwards (`cutroom captions`).
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--find`: Words as transcribed, e.g. 'white sand'.
+- `--replace`: Correct words, e.g. 'White Sands'.
+- `--source`: Source id (default: the only one).
+- `--at`: Only the occurrence near this source time (s).
 - `--json`: Print machine-readable JSON on stdout.
 
 ## `cutroom frames`
@@ -482,6 +504,8 @@ Parameters:
 - `--rounds`: Maximum review rounds with --fix. (default: 4)
 - `--fresh`, `--no-fresh`: Render again even if this version has a render.
 - `--no-render`: Checks that need no render only (fast).
+- `--accept`: Accept an issue after judgement: CHECK or CHECK@SECONDS.
+- `--reason`: Why it is acceptable (required with --accept).
 - `--json`: Print machine-readable JSON on stdout.
 
 ## `cutroom rough-cut`
@@ -497,6 +521,85 @@ Parameters:
 - `--retake-confidence`: Apply retake candidates at or above this confidence. (default: 0.75)
 - `--fresh`, `--no-fresh`: Start from a new assembly even if a timeline exists.
 - `--render`, `--no-render`: Render a preview at the end.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom short-create`
+
+Make job <job>.short-NN from the parent's cleaned edit in that range: same sources (no copy),
+analysis shared, timeline reframed 9:16 per clip (a still or smoothly moving crop on the face,
+or a blurred-fill layout when there is no single clear face).
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--pick`: Pick number from shorts-find (1-based).
+- `--from`: Source start (s) instead of a pick.
+- `--to`: Source end (s).
+- `--source`: Source id for --from/--to (default: the only one).
+- `--number`: Short number NN (default: next free).
+- `--title`: Working title.
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom short-hook`
+
+Shorts are decided in the first second: show the hook as a headline while it is said. With
+the face-tracking crop the headline would often cover the face, so by default (auto) the
+opening switches to the blurred-fill layout (the 16:9 frame in the middle, the headline in the
+blurred band above it) when no band clears the face, then cuts to the crop.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--text`: Headline: the speaker's own words (≤ 48 characters).
+- `--fact`, `-f`: Where it is said, e.g. sentences:10.
+- `--duration`: Seconds (default style shorts.hook.duration_s).
+- `--layout`: auto, fill (frame in the middle, headline above it) or crop. (default: auto)
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom short-publish`
+
+Writes publish.task.md (the Short's transcript and YouTube rules) for the agent to write
+publish.json; with --check, validates it: title ≤ 100 characters, description ≤ 5,000, 3–5
+hashtags including #Shorts, every number in title/description said in the Short, no
+clickbait words the Short does not deliver, credit line present when the brief asks for one.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--check`: Validate publish.json.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom shorts`
+
+shorts-find → short-create for each pick → captions in the Shorts style and safe zone →
+a headline with the opening line (the speaker's own words, sourced) → optional preview.
+The agent then reviews each Short (`cutroom review <short job>`) and writes its title and
+description (`short-publish`).
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--count`: How many Shorts. (default: 5)
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--render`, `--no-render`: Render previews.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom shorts-find`
+
+Windows of whole sentences scored for a first line that stops the scroll (no "and/so/it…"
+needing context, strong words, a question or a number), a clean ending, length near the target,
+one topic (preferring topics marked as Short candidates) and substance. Writes the ranked list
+and the non-overlapping picks to analysis/shorts.json; read the reasons before creating.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--count`: How many to pick. (default: 5)
+- `--min-s`: Shortest (s), default from style shorts.min_s.
+- `--max-s`: Longest (s), default from style shorts.max_s.
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
 - `--json`: Print machine-readable JSON on stdout.
 
 ## `cutroom show`

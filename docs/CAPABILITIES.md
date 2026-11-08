@@ -3,7 +3,7 @@
 An honest map of what Cutroom can do today, what it can do partially, and what it cannot
 do yet, with the plan for each gap. Updated at the end of every phase.
 
-Last updated: Phase 4 (review loop).
+Last updated: Phase 5 (Shorts).
 
 ## Can do (built and tested)
 
@@ -43,6 +43,14 @@ Last updated: Phase 4 (review loop).
 | Theme switch | `style --client-style` | Client themes (`styles/clients/*.style.yaml`) restyle every graphic and caption without touching the edit |
 | Graphics visual regression | tests | Golden still for every variant, compared with a tolerance |
 | Automatic review | `review` | Audio (loudness, peaks, clicks, pauses/fillers left, level jumps between takes), cuts (mid-word, flash shots, undisguised jump cuts, clipped words), captions (missing, stale words or timing, safe zone, sync, reading speed), graphics (on faces, safe area, unsourced, no source, lost moment, too short, crowded), video (frames, black/frozen frames, quality flags), structure (ending, opening, static stretches, low-value topics); report with severity, evidence and fix command; scorecard; contact sheets for the agent to look at |
+| Shorts: moment finding | `shorts-find` | Whole-sentence windows in speech order scored for hook, ending, length, topic, substance; reasons listed; agent chooses |
+| Shorts: derived 9:16 jobs | `short-create` | Own job per Short sharing media and analysis; face-tracked crop (still / slow follow / cut at camera changes) or blurred-fill layout; frame-exact render |
+| Shorts: hook | `short-hook` | Headline in the speaker's words, sourced; blurred-fill opening when the headline would touch the face |
+| Shorts: captions and checks | `captions --output youtube_short`, `review` | Shorts safe zone; length within platform limit; face kept inside the crop |
+| Shorts: publishing text | `short-publish` | Agent task + check: title ≤ 100 chars, 3–5 hashtags starting #Shorts, numbers said in the Short, credit line, no hype |
+| Batch Shorts | `shorts` | find → create → captions → hook (→ preview) in one command |
+| Transcript corrections | `fix-words` | Misheard names/terms fixed with timing kept; re-applied on rebuild; propagated to Shorts |
+| Accepting an issue | `review --accept CHECK@T --reason …` | Editor's judgement recorded in every later report |
 | Autonomous fix loop | `review --fix` | Up to 4 rounds of review → safe fixes (pauses, fillers, flash shots, punch-ins, graphics, captions, audio) → review; stops at the human gate. Seeded-defect test: 9/9 found and fixed in one fix round |
 
 ## Partially
@@ -50,13 +58,15 @@ Last updated: Phase 4 (review loop).
 | Capability | Gap | Plan |
 |---|---|---|
 | Flash shots where the source's own camera change falls mid-speech | `review --fix` trims word-free slivers onto the camera change or lengthens the shot into a neighbouring pause; a sliver that holds a word with no pause to borrow is left for a person | Move the join by a word (needs judgement) |
-| Speaker identification | Off-mic voices hinted by level (⟪quiet⟫); interviewer questions identified by the agent from content | Diarization (speaker embeddings, non-gated free model) in Phase 5 |
+| Speaker identification | Off-mic voices hinted by level (⟪quiet⟫); interviewer questions identified by the agent from content | Diarization (speaker embeddings, non-gated free model): moved to Phase 8, Shorts did not need it (single speaker) |
 | Filler/stumble transcription | Whisper drops some; acoustic detection catches voiced sounds in pauses, not fillers fused into words | Measure on more real footage; optional second verbatim pass |
 | Footage-type detection | Heuristic; screen-recording detection untested on real screen captures | Test on real samples; add OCR text density |
 | Windows / macOS / NVIDIA GPU | Written to official docs, not yet run on real hardware | Your first `setup` + `doctor` run |
 | Reading speed | Captions follow speech, so fast talkers exceed 17 chars/s (reported, not hidden) | Optional condensed captions (agent-edited text) for very fast speech |
 | Caption render time | Remotion draws every frame: ~7 min for a 9-min 540p preview on 4 cores | Skip frames with no caption; render only changed frames (Phase 8 profiling) |
 | Graphics size estimate | Placement uses a size hint per template; long text can be wider than estimated (the render check then fails and says so) | Measure text with the theme fonts before placing |
+| J/L cuts | Audio and picture are cut together; a flash shot that holds a word cannot be fixed without one | Separate audio/picture edges per join |
+| Shorts with several speakers | Two-shots use the fill layout; no active-speaker switching | Needs diarization (Phase 8) |
 | Crossfades | Transitions are overlays over a cut; true video crossfades (overlapping clips) are not rendered | Add when a client style asks for them |
 | Review of taste | Framing, expressions at cut points, whether graphics help, whether the hook lands: contact sheets are produced, the agent judges them | Expression/blink detection at cut points |
 | Black/frozen frame and level checks | Measured on the render (FFmpeg blackdetect/freezedetect) and on per-word levels; lip sync is not measured | Lip-sync check for separately recorded audio |
@@ -66,7 +76,6 @@ Last updated: Phase 4 (review loop).
 
 | Capability | Phase |
 |---|---|
-| Shorts: moment selection, 9:16 reframing with face tracking, safe-zone captions | 5 |
 | B-roll, music, SFX, thumbnails | 6 |
 | Client styles, revision notes → timeline edits, OTIO/FCPXML export, delivery package | 7 |
 | Batch queue, crash resume, golden regression suite | 8 |

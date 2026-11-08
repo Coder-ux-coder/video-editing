@@ -37,6 +37,7 @@ class TemplateSpec:
     at_cut: bool = False
     params: dict = field(default_factory=dict)
     backing_variants: list[str] = field(default_factory=list)   # no panel of their own: auto backing on bright footage
+    props: dict = field(default_factory=dict)   # fixed component props (e.g. a headline's smaller type size)
 
     @property
     def text_params(self) -> list[str]:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Optional
 
 import typer
 
@@ -22,6 +22,8 @@ def review(job_id: JobArg, version: VersionOpt = None,
            rounds: Annotated[int, typer.Option(help="Maximum review rounds with --fix.")] = 4,
            fresh: Annotated[bool, typer.Option(help="Render again even if this version has a render.")] = False,
            no_render: Annotated[bool, typer.Option("--no-render", help="Checks that need no render only (fast).")] = False,
+           accept: Annotated[Optional[str], typer.Option(help="Accept an issue after judgement: CHECK or CHECK@SECONDS.")] = None,
+           reason: Annotated[Optional[str], typer.Option(help="Why it is acceptable (required with --accept).")] = None,
            as_json: JsonOpt = False) -> None:
     """Checks audio (loudness, peaks, clicks, pauses and fillers left, level jumps), cuts (mid-word
     cuts, flash shots, undisguised jump cuts, clipped words), captions (missing, stale, safe zone,
@@ -36,6 +38,18 @@ def review(job_id: JobArg, version: VersionOpt = None,
     from cutroom.system.profile import load_profile
 
     job = Job.load(job_id)
+    if accept:
+        from cutroom.errors import RefusedError
+        from cutroom.review.run import accept_issue
+
+        if not reason:
+            raise RefusedError("Say why the issue is acceptable.", fix="Add --reason '…' (it goes in every report).")
+        check, _, at = accept.partition("@")
+        entry = accept_issue(job, check, float(at) if at else None, reason)
+        emit(as_json, entry)
+        if not as_json:
+            out.print(f"Accepted {accept}: {reason}")
+        return
     job.log.section("review" + (" --fix" if fix else ""))
     try:
         conc = graphics_concurrency(load_profile())

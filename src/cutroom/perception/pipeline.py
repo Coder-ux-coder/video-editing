@@ -53,6 +53,9 @@ def ensure_words(job: Job, s: SourceRecord, *, force: bool = False, on_progress=
     wf, env = build_words(t, job.abspath(s.audio["analysis"]), job.abspath(s.audio["asr"]),
                           source_id=s.id, fillers=fillers)
     wf.stats["version"] = WORDS_VERSION
+    from cutroom.perception.corrections import apply_corrections, load_corrections
+
+    apply_corrections(wf, load_corrections(job.analysis_dir(s.id)))   # names fixed by hand stay fixed
     atomic_write_text(path, wf.model_dump_json(indent=1, by_alias=True) + "\n")
     np.savez_compressed(job.analysis_dir(s.id) / "envelope.npz", env=env)
     st = wf.stats

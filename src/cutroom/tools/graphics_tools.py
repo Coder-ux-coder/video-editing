@@ -158,6 +158,12 @@ def _region_luminance(ctx: EditContext, box, t0: float, t1: float) -> list[float
     return [round(min(lo), 4), round(max(hi), 4)] if lo else None
 
 
+def _vertical_face_map(tl: Timeline):
+    from cutroom.shorts.reframe import output_face_mapper
+
+    return output_face_mapper(tl)
+
+
 def _active(tl: Timeline, t0: float, t1: float, specs: dict[str, TemplateSpec], exclude: str | None = None) -> list[Graphic]:
     return [g for g in tl.graphics if g.end > t0 and g.start < t1 and g.id != exclude
             and not (specs.get(g.template) and specs[g.template].persistent)]
@@ -173,6 +179,9 @@ def build_graphic(ctx: EditContext, spec: TemplateSpec, *, start: float, duratio
     tl = ctx.tl
     rules = ctx.style.get("graphics", {}).get("rules", {})
     theme = ctx.style.get("graphics", {}).get("theme", {})
+    portrait = tl.meta.height > tl.meta.width
+    if portrait and theme.get("safe_short"):
+        theme = {**theme, "safe": theme["safe_short"]}
     params, variant = validate_params(spec, params, variant)
     texts, quotes = resolve_refs(ctx, refs)
     fc = require_facts(spec, params, texts)
@@ -204,7 +213,8 @@ def build_graphic(ctx: EditContext, spec: TemplateSpec, *, start: float, duratio
     band = caption_band(ctx.style, tl.captions.style if tl.captions else None, tl.meta.width, tl.meta.height,
                         short=tl.meta.aspect == "9:16")
     pl = place(spec, start, end, faces=_faces(ctx), safe=theme.get("safe", {}), band=band, others=others,
-               clearance=rules.get("caption_band_clearance", 0.02), anchor=anchor)
+               clearance=rules.get("caption_band_clearance", 0.02), anchor=anchor,
+               face_map=_vertical_face_map(tl) if portrait else None)
     if pl.get("face_cover", 0) > 0.02:
         warnings.append(f"no anchor keeps it fully off the face ({pl['face_cover']:.0%} of the head covered)")
     if spec.hides_captions and tl.captions:
@@ -227,7 +237,7 @@ def build_graphic(ctx: EditContext, spec: TemplateSpec, *, start: float, duratio
             at = source_to_timeline(tl, *attach_t)
             attach = {"source": attach_t[0], "t": attach_t[1], "offset": round(start - at, 4) if at is not None else 0.0}
     g = Graphic(id=gid, template=spec.id, variant=variant, params=params, start=round(start, 3), end=round(end, 3),
-                anchor=anchor or "auto", placement={k: v for k, v in pl.items() if k in ("anchor", "x", "y", "box")},
+                anchor=anchor or "auto", placement={k: v for k, v in pl.items() if k in ("anchor", "x", "y", "box", "valign")},
                 facts=list(texts), fact_check={**fc.as_dict(), "quotes": quotes, "placement": pl}, attach=attach,
                 whole=spec.persistent, hides_captions=spec.hides_captions, bg_luminance=bg_lum, reason=reason)
     return g, warnings
@@ -480,6 +490,9 @@ def punch_in(job_id: JobArg,
     change are left alone. The crop is centred on the face, keeping the head inside the frame."""
     ctx = open_edit(job_id, version, need_words=False)
     tl = ctx.tl.model_copy(deep=True)
+    if tl.meta.height > tl.meta.width:
+        raise RefusedError("This is a vertical Short: its clips carry the 9:16 crop, which a punch-in would replace.",
+                           fix="Jump cuts are the accepted style in Shorts; re-frame with `short-create` if needed.")
     s = scale or ctx.style.get("graphics", {}).get("rules", {}).get("punch_in_scale", 1.12)
     if not 1.0 <= s <= 1.5:
         raise RefusedError(f"Zoom {s} is outside 1.0-1.5.", fix="Punch-ins look natural at 1.08-1.2.")
@@ -573,6 +586,7 @@ def preview_props(items: list[dict], theme: dict, width: int, height: int, fps: 
     for i, it in enumerate(items):
         spec = specs[it["template"]]
         params, variant = validate_params(spec, it.get("params", {}), it.get("variant"))
+        params = {**spec.props, **params}
         pl = {"anchor": "center-center", "x": 0.5, "y": 0.5}
         if spec.anchors and spec.size_hint:
             a = spec.anchors[0]

@@ -1,0 +1,35 @@
+{
+ "id": "headline",
+ "component": "KineticText",
+ "variants": [
+  "slide",
+  "pop"
+ ],
+ "default_duration_s": 3.0,
+ "description": "Short headline at the top of a Short (or over a long-form intro): the hook in a few words, captions stay on.",
+ "zone": "band",
+ "anchors": [],
+ "size_hint": null,
+ "fact_params": [],
+ "hides_captions": false,
+ "persistent": false,
+ "at_cut": false,
+ "backing_variants": [
+  "slide",
+  "pop"
+ ],
+ "params": {
+  "text": {
+   "type": "string",
+   "required": true,
+   "max_len": 48
+  },
+  "emphasis": {
+   "type": "list",
+   "max_items": 3
+  }
+ },
+ "props": {
+  "size": "heading"
+ }
+}

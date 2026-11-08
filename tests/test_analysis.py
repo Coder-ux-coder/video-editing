@@ -113,3 +113,19 @@ def test_frames_command_source_times(ingested_job):
     assert r.exit_code == 0, r.output
     path = json.loads(r.output)["path"]
     assert cv2.imread(path) is not None
+
+
+def test_word_corrections_keep_timing_and_punctuation():
+    from test_cutting import seq
+
+    from cutroom.perception.corrections import apply_corrections, find_phrase
+
+    wf = seq("Well, white sand says that's not what happened. We love white sand.", start=1.0, word=0.3)
+    span = (wf.words[1].start, wf.words[2].end)
+    assert len(find_phrase(wf, "White sand")) == 2
+    n = apply_corrections(wf, [{"find": "white sand", "replace": "White Sands", "at": 1.4}])
+    assert n == 1 and [w.text for w in wf.words[1:3]] == ["White", "Sands"]
+    assert (wf.words[1].start, wf.words[2].end) == span and "corrected" in wf.words[1].flags
+    assert apply_corrections(wf, [{"find": "white sand", "replace": "White Sands National Park"}]) == 1
+    assert wf.words[-1].text == "Park." and wf.words[-1].sentence_end      # punctuation and sentence end kept
+    assert [w.i for w in wf.words] == list(range(len(wf.words)))

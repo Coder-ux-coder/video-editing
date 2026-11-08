@@ -54,6 +54,8 @@ class JobManifest(BaseModel):
     cutroom_version: str = __version__
     sources: list[SourceRecord] = Field(default_factory=list)
     stages: dict[str, StageRecord] = Field(default_factory=dict)
+    parent: str | None = Field(None, description="For a derived job (a Short): the job it was cut from.")
+    derived: dict = Field(default_factory=dict, description="How it was derived (parent version, range, score).")
 
 
 BRIEF_TEMPLATE = """# Brief: {job_id}

@@ -137,7 +137,7 @@ job and absolute otherwise, so a job folder can move between machines and operat
 | Transcript | faster-whisper (CTranslate2) locally, word timestamps, Silero VAD, verbatim prompt to keep stumbles, hotwords from the client glossary. Model chosen per machine by benchmark. | **[built]** (glossary [P1]) |
 | Word-timing refinement | Word edges that border a pause are re-placed on the pause found in a 5 ms energy envelope (end = first silence after the word, start = last silence before it). Ground truth: 214/429 ms mean/max error → 17/70 ms. Forced alignment kept in reserve. | **[built]** |
 | Filler detection | Verbatim ASR (transcribed fillers) plus audible regions inside pauses with no word, classified voiced (likely um/uh, by pitch periodicity) or unvoiced (breath) | **[built]** |
-| Speakers | Multi-track recordings: one track per speaker (free and exact). Single track: speaker embeddings + clustering with a non-gated free model (e.g. sherpa-onnx), see §11 | [P1/P5] |
+| Speakers | Multi-track recordings: one track per speaker (free and exact). Single track: speaker embeddings + clustering with a non-gated free model (e.g. sherpa-onnx), see §11 | [P8] (moved from P5: the Shorts engine did not need it) |
 | Audio report | `ebur128` (LUFS, LRA, true peak), envelope-based noise floor, speech level, SNR, clipping runs, silences | **[built]**; per-speaker levels and speech/music segmentation [P2] |
 | Visual report | FFmpeg `scdet` shots; YuNet face detection via OpenCV (bounding box, mouth landmarks) on 1 fps samples; framing (headroom, centring, size); exposure judged on the face; sharpness; colour cast; contact sheets | **[built]**; OCR for screen recordings [P4/P5] |
 | Pacing map | Per-second words, speech time, energy; smoothed boring score; slowest stretches | **[built]** |
@@ -237,6 +237,21 @@ what `remove-silence` would really remove now), so a check and its fix never dis
 order (pauses and fillers → flash shots recomputed on the new edit → punch-ins → graphics →
 captions → audio), each a new version, and repeats up to 4 rounds; judgement calls (a flash shot
 holding a word, a weak opening, a graphic without a source) are left with a manual fix command.
+
+### 4.6b Shorts [built]
+
+A Short is a derived job `<job>.short-NN` (`shorts/derive.py`): its manifest names the parent,
+its sources point at the parent's media, its `analysis/` is hard-linked from the parent, and its
+timeline (1080x1920, output `youtube_short`) is the parent's kept material inside a source range,
+in speech order. Framing (`shorts/reframe.py`) is stored per clip: crop keyframes (`reframe`,
+crop centre x) planned per source shot from the face track (still / speed-limited follow / jump at
+camera changes), or the `vertical_fill` effect (whole frame fitted over a blurred copy). The
+renderer turns a run's keyframes into one `crop` filter with per-frame expressions, and a fill run
+into a split/blur/overlay graph; runs break where the layout changes. Moments come from
+`shorts/find.py` (whole-sentence windows scored with reasons), the hook from `short-hook`
+(headline graphic, fill opening when needed), publishing text from an agent task checked by
+`shorts/publish.py`. Graphics placement and the review's face checks map face boxes through each
+clip's crop (`output_face_mapper`), and use the Shorts safe area.
 
 ### 4.7 Style layer [built; reference analysis P6]
 

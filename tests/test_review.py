@@ -130,3 +130,24 @@ def test_clean_timeline_is_ready(tmp_path):
     tl.captions = plan_captions(tl, {"S01": wf}, STYLE, "clean")
     issues = run_checks(_ri(tl, wf, tmp_path))
     assert scorecard(issues)["ready"], [i.as_dict() for i in issues if i.severity in ("blocker", "major")]
+
+
+def test_caption_sync_verdict_on_small_samples():
+    from cutroom.render.engine import caption_sync_ok
+
+    assert caption_sync_ok({"measured": 86, "within_80ms": 0.965, "max_ms": 230})
+    assert not caption_sync_ok({"measured": 86, "within_80ms": 0.93, "max_ms": 230})
+    assert caption_sync_ok({"measured": 7, "within_80ms": 6 / 7, "max_ms": 138})      # a Short: one miss ≤ 200 ms
+    assert not caption_sync_ok({"measured": 7, "within_80ms": 5 / 7, "max_ms": 138})  # two misses
+    assert not caption_sync_ok({"measured": 7, "within_80ms": 6 / 7, "max_ms": 400})  # one bad miss
+
+
+def test_accepted_issues_are_recorded_with_a_reason(jobs_base):
+    from cutroom.job import Job
+    from cutroom.review.run import accept_issue, load_accepted
+
+    job = Job.create("accept-test")
+    accept_issue(job, "cuts.flash_shot", 32.97, "sliver holds 'But did'; needs a J-cut")
+    accept_issue(job, "cuts.flash_shot", 32.97, "updated reason")
+    items = load_accepted(job)
+    assert len(items) == 1 and items[0]["reason"] == "updated reason"

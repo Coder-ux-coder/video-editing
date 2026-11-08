@@ -183,10 +183,11 @@ def check_cuts(ri: ReviewInput) -> list[Issue]:
                          f"A {f['duration'] * 1000:.0f} ms shot at {tc(f['start'])}: our cut lands "
                          f"{f['duration']:.2f} s from the source's own camera change.", at=f["start"],
                          fix=f["fix"], auto=f["auto"], data=f))
-    # Same-angle jump cuts inside a sentence with no change of framing.
+    # Same-angle jump cuts inside a sentence with no change of framing (long-form only: in a
+    # vertical Short, jump cuts are the accepted style and the crop carries the framing).
     clips = tl.track_clips()
     undisguised = []
-    for a, b in zip(clips, clips[1:]):
+    for a, b in zip(clips if tl.meta.width >= tl.meta.height else [], clips[1:]):
         if a.source != b.source or b.src_in < a.src_out - 1e-3:
             continue
         wf = ri.words.get(a.source)
@@ -323,7 +324,9 @@ def check_captions(ri: ReviewInput) -> list[Issue]:
                              f"{sz['outside_count']} sampled frames, e.g. {sz.get('outside_safe_zone', [])[:2]}.",
                              fix="Use a style with a smaller fontSizeRel for this client"))
         sy = cap.get("sync", {})
-        if sy.get("measured") and sy.get("within_80ms", 1) < 0.95:
+        from cutroom.render.engine import caption_sync_ok
+
+        if sy.get("measured") and not caption_sync_ok(sy):
             out.append(Issue("captions.sync", "captions", "major", "Captions out of sync",
                              f"{sy['within_80ms']:.0%} within 80 ms (median {sy.get('median_ms')} ms); worst {sy.get('worst', [])[:2]}.",
                              fix="cutroom analyze <job> --force, then cutroom captions <job>"))
@@ -530,7 +533,47 @@ def _src_to_tl(tl: Timeline, source: str, t: float) -> float | None:
     return round(later[0].start, 3) if later else None
 
 
-ALL_CHECKS = (check_audio, check_cuts, check_captions, check_graphics, check_video, check_structure)
+def check_short(ri: ReviewInput) -> list[Issue]:
+    """Vertical Shorts: length within the platform limit and the style's range, and the face kept
+    inside the 9:16 crop."""
+    tl = ri.tl
+    if tl.meta.height <= tl.meta.width:
+        return []
+    from cutroom.shorts.reframe import FILL, output_face_mapper
+
+    cfg = ri.style.get("shorts", {})
+    out: list[Issue] = []
+    d = tl.duration
+    if d > cfg.get("hard_max_s", 180):
+        out.append(Issue("short.too_long", "structure", "blocker", "Too long for a Short",
+                         f"{d:.1f} s; YouTube Shorts are at most {cfg.get('hard_max_s', 180)} s.",
+                         fix="cutroom cut <job> --sentences … to tighten"))
+    elif d > cfg.get("max_s", 58) * 1.1 or d < cfg.get("min_s", 20) * 0.75:
+        out.append(Issue("short.length", "structure", "minor", "Short length outside the style's range",
+                         f"{d:.1f} s; style range {cfg.get('min_s', 20)}–{cfg.get('max_s', 58)} s.", fix=None))
+    to_out = output_face_mapper(tl)
+    faces_p = {s.id: ri.job_root / "analysis" / s.id / "faces.json" for s in tl.sources}
+    cropped = []
+    for c in tl.track_clips():
+        if any(e.name == FILL for e in c.effects) or not faces_p[c.source].is_file():
+            continue
+        samples = json.loads(faces_p[c.source].read_text(encoding="utf-8"))
+        shots = ri.shots.get(c.source, [])
+        for smp in samples:
+            if any(abs(smp["t"] - s) < 0.5 for s in shots):
+                continue        # a 1 s sample this close to a camera change may show the other shot
+            if c.src_in <= smp["t"] < c.src_out and smp["faces"]:
+                f = to_out(c.to_timeline(smp["t"]), smp["faces"][0])
+                if f and (f["x"] < -0.02 or f["x"] + f["w"] > 1.02):
+                    cropped.append(c.to_timeline(smp["t"]))
+    if cropped:
+        out.append(Issue("short.face_cropped", "video", "major", "Face cut off by the vertical crop",
+                         f"{len(cropped)} sampled moment(s), first at {tc(cropped[0])}.", at=cropped[0],
+                         fix="cutroom short-create again (re-frames), or give that clip the fill layout"))
+    return out
+
+
+ALL_CHECKS = (check_audio, check_cuts, check_captions, check_graphics, check_video, check_structure, check_short)
 
 
 def run_checks(ri: ReviewInput) -> list[Issue]:

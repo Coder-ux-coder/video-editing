@@ -197,3 +197,59 @@ def topics(job_id: JobArg,
     emit(as_json, {"task": rel_or_abs(path, job.root)})
     if not as_json:
         out.print(f"Task written: {path}")
+
+
+@tool(ToolManifest("fix-words", "Correct misheard words (names, terms) in the transcript, keeping their timing.",
+                   "analysis", inputs=["analysis/<src>/words.json"], outputs=["words.json", "corrections.json"],
+                   tests=["tests/test_analysis.py"]))
+def fix_words(job_id: JobArg, find: Annotated[str, typer.Option(help="Words as transcribed, e.g. 'white sand'.")],
+              replace: Annotated[str, typer.Option(help="Correct words, e.g. 'White Sands'.")],
+              source: Annotated[Optional[str], typer.Option(help="Source id (default: the only one).")] = None,
+              at: Annotated[Optional[float], typer.Option(help="Only the occurrence near this source time (s).")] = None,
+              as_json: JsonOpt = False) -> None:
+    """Fix a name or term the speech model got wrong (found in transcript review, or a
+    ⟨?low-confidence?⟩ word). Every occurrence (or the one near --at) is replaced over the same
+    time span, recorded in corrections.json (re-applied if words are rebuilt) and copied to
+    Shorts derived from this job. Re-plan captions afterwards (`cutroom captions`)."""
+    from cutroom.perception.corrections import apply_corrections, corrections_path, load_corrections
+    from cutroom.perception.words import load_words
+
+    job = Job.load(job_id)
+    if source is None:
+        if len(job.manifest.sources) != 1:
+            raise JobError("This job has several sources.", fix="Pass --source S0n.")
+        source = job.manifest.sources[0].id
+    item = {"find": find, "replace": replace, "at": at}
+    targets = [job] + [j for j in _derived_jobs(job)]
+    counts = {}
+    for j in targets:
+        adir = j.root / "analysis" / source
+        p = adir / "words.json"
+        if not p.is_file():
+            continue
+        wf = load_words(p)
+        n = apply_corrections(wf, [item])
+        if n:
+            atomic_write_text(p, wf.model_dump_json(indent=1, by_alias=True) + "\n")
+        items = [i for i in load_corrections(adir) if not (i["find"] == find and i.get("at") == at)] + [item]
+        atomic_write_text(corrections_path(adir), json.dumps(items, indent=1) + "\n")
+        counts[j.id] = n
+        j.log.note(f"fix-words {source}: '{find}' → '{replace}'" + (f" near {at}s" if at is not None else "")
+                   + f" ({n} occurrence(s))")
+    if not counts.get(job.id):
+        raise JobError(f"'{find}' was not found in {source}" + (f" near {at}s" if at is not None else "") + ".",
+                       fix="Use the words exactly as transcribed (see analysis/<src>/transcript.txt).")
+    emit(as_json, {"replaced": counts})
+    if not as_json:
+        out.print(f"'{find}' → '{replace}': " + ", ".join(f"{k}: {v}" for k, v in counts.items())
+                  + ". Re-plan captions where they exist.")
+
+
+def _derived_jobs(job: Job) -> list[Job]:
+    out_ = []
+    for p in sorted(job.root.parent.glob(f"{job.id}.short-*")):
+        if (p / "job.json").is_file():
+            j = Job.load(p)
+            if j.manifest.parent == job.id:
+                out_.append(j)
+    return out_

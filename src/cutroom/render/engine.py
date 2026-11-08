@@ -43,6 +43,7 @@ class Segment:
     n_out: int       # exclusive
     out_frame: int   # position on the output timeline (frames)
     zoom: tuple | None = None   # (scale0, x0, y0, scale1, x1, y1): punch-in/push, crop centre in frame fractions
+    vframe: tuple | None = None  # vertical output: ("fill",) or ("crop", [(frame offset, centre x), ...])
 
     @property
     def frames(self) -> int:
@@ -60,10 +61,25 @@ def plan_segments(tl: Timeline) -> list[Segment]:
         n_in, n_out = int(round(c.src_in * fps)), int(round(c.src_out * fps))
         if n_out <= n_in:
             continue
-        segs.append(Segment(c.id, c.source, n_in, n_out, pos, _zoom(c)))
+        vf = _vframe(tl, c, fps, n_out - n_in)
+        segs.append(Segment(c.id, c.source, n_in, n_out, pos, None if vf else _zoom(c), vf))
         pos += n_out - n_in
     return segs
 
+
+def is_vertical(tl: Timeline, source_id: str) -> bool:
+    """A portrait output cut from landscape footage (a Short from 16:9 material)."""
+    s = tl.source(source_id)
+    return tl.meta.height > tl.meta.width and bool(s.width and s.height and s.width > s.height)
+
+
+def _vframe(tl: Timeline, c, fps: float, frames: int) -> tuple | None:
+    if not is_vertical(tl, c.source):
+        return None
+    if any(e.name == "vertical_fill" for e in c.effects):
+        return ("fill",)
+    keys = [(min(frames - 1, int(round(k.t * fps))), k.x) for k in c.reframe] or [(0, 0.5)]
+    return ("crop", keys)
 
 def _zoom(c) -> tuple | None:
     """A clip's reframe as a constant punch-in or a linear push from its first to its last keyframe."""
@@ -83,7 +99,14 @@ def clip_segments(segs: list[Segment], f0: int, f1: int) -> list[Segment]:
         if b <= a:
             continue
         n_in = s.n_in + (a - s.out_frame)
-        out.append(Segment(s.clip_id, s.source, n_in, n_in + (b - a), a - f0, s.zoom))
+        vf = s.vframe
+        if vf and vf[0] == "crop":     # keyframes are relative to the segment start: shift them
+            off = a - s.out_frame
+            keys = [(k - off, x) for k, x in vf[1]]
+            before = [kx for kx in keys if kx[0] <= 0]
+            keys = ([(0, before[-1][1])] if before else []) + [kx for kx in keys if kx[0] > 0]
+            vf = ("crop", keys or [(0, vf[1][-1][1])])
+        out.append(Segment(s.clip_id, s.source, n_in, n_in + (b - a), a - f0, s.zoom, vf))
     return out
 
 
@@ -105,7 +128,8 @@ def shift_captions(caps, t0: float, t1: float):
 def group_runs(segs: list[Segment]) -> list[list[Segment]]:
     runs: list[list[Segment]] = []
     for s in segs:
-        if runs and runs[-1][-1].source == s.source and s.n_in >= runs[-1][-1].n_out:
+        same_layout = (runs[-1][-1].vframe or ("",))[0] == (s.vframe or ("",))[0] if runs else False
+        if runs and runs[-1][-1].source == s.source and s.n_in >= runs[-1][-1].n_out and same_layout:
             runs[-1].append(s)
         else:
             runs.append([s])
@@ -256,14 +280,25 @@ def render_run(job: Job, tl: Timeline, run: list[Segment], out_path: Path, *, mo
     zoom = zoom_filter(run, fps, w, h)
     sw, sh = src.media.primary_video.display_width, src.media.primary_video.display_height
     same_aspect = abs(sw / sh - w / h) < 0.01
-    if zoom and same_aspect:
-        chain += [zoom, "setsar=1"]          # crop from the full-resolution frame, scale once
+    vf = run[0].vframe
+    if vf and vf[0] == "fill":
+        style = _style_value(tl, ("shorts", "fill_blur"), 28)
+        sigma = max(4, int(round(style * w / 1080)))
+        graph = ("[0:v]" + ",".join(chain) + ",split=2[fa][fb];"
+                 f"[fa]scale={w}:{h}:force_original_aspect_ratio=increase:flags=bicubic,crop={w}:{h},"
+                 f"gblur=sigma={sigma},eq=brightness=-0.08:saturation=0.85[fbg];"
+                 f"[fb]scale={w}:-2:flags=lanczos[ffg];[fbg][ffg]overlay=0:(H-h)/2,setsar=1")
     else:
-        chain += [f"scale={w}:{h}:force_original_aspect_ratio=decrease:flags=bicubic",
-                  f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2", "setsar=1"]
-        if zoom:
-            chain += [zoom, "setsar=1"]
-    graph = "[0:v]" + ",".join(chain)
+        if vf and vf[0] == "crop":
+            chain += [vertical_crop_filter(run, w, h), f"scale={w}:{h}:flags=lanczos", "setsar=1"]
+        elif zoom and same_aspect:
+            chain += [zoom, "setsar=1"]          # crop from the full-resolution frame, scale once
+        else:
+            chain += [f"scale={w}:{h}:force_original_aspect_ratio=decrease:flags=bicubic",
+                      f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2", "setsar=1"]
+            if zoom:
+                chain += [zoom, "setsar=1"]
+        graph = "[0:v]" + ",".join(chain)
     chain = []
     extra_inputs: list[str] = []
     if overlay:
@@ -284,6 +319,40 @@ def render_run(job: Job, tl: Timeline, run: list[Segment], out_path: Path, *, mo
             "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", str(out_path)]
     run_ffmpeg(args, desc=f"render video run ({len(run)} clips from {src.id})",
                duration=frames / fps, on_progress=on_progress)
+
+
+def _style_value(tl: Timeline, keys: tuple, default):
+    from cutroom.style import timeline_style
+
+    v = timeline_style(tl)
+    for k in keys:
+        v = v.get(k, {}) if isinstance(v, dict) else {}
+    return v if v not in ({}, None) else default
+
+
+def vertical_crop_filter(run: list[Segment], w: int, h: int) -> str:
+    """A full-height window of the output's aspect, its centre following each clip's keyframes
+    (piecewise linear in the run-local frame number ``n``), clamped inside the frame."""
+    terms = []
+    pos = 0
+    for s in run:
+        keys = s.vframe[1] if s.vframe and s.vframe[0] == "crop" else [(0, 0.5)]
+        keys = sorted(keys)
+        for i, (k, x) in enumerate(keys):
+            a = pos + max(0, k) if i else pos
+            b = pos + (keys[i + 1][0] if i + 1 < len(keys) else s.frames) - 1
+            if b < a:
+                continue
+            if i + 1 < len(keys):
+                x1 = keys[i + 1][1]
+                span = max(1, b - a + 1)
+                terms.append(f"between(n\\,{a}\\,{b})*({x:.5f}+({x1 - x:.5f})*(n-{a})/{span})")
+            else:
+                terms.append(f"between(n\\,{a}\\,{b})*({x:.5f})")
+        pos += s.frames
+    cx = "+".join(terms) or "0.5"
+    return (f"crop=w='trunc(ih*{w}/{h}/2)*2':h='trunc(ih/2)*2':"
+            f"x='max(0\\,min(iw-ow\\,iw*({cx})-ow/2))':y='(ih-oh)/2'")
 
 
 def zoom_filter(run: list[Segment], fps: float, w: int, h: int) -> str | None:
@@ -353,6 +422,9 @@ def faces_at(job: Job, tl: Timeline, t0: float = 0.0):
         if p.is_file():
             data[s.id] = json.loads(p.read_text(encoding="utf-8"))
     clips = tl.track_clips()
+    from cutroom.shorts.reframe import output_face_mapper
+
+    to_out = output_face_mapper(tl)
 
     def faces(t: float) -> list[dict]:
         t += t0
@@ -360,7 +432,8 @@ def faces_at(job: Job, tl: Timeline, t0: float = 0.0):
             if c.start <= t < c.end and c.source in data:
                 st = c.to_source(t)
                 near = [smp for smp in data[c.source] if abs(smp["t"] - st) <= 0.6 and c.src_in - 0.3 <= smp["t"] <= c.src_out + 0.3]
-                return min(near, key=lambda smp: abs(smp["t"] - st))["faces"] if near else []
+                found = min(near, key=lambda smp: abs(smp["t"] - st))["faces"] if near else []
+                return [m for m in (to_out(t, f) for f in found) if m]
         return []
     return faces
 
@@ -391,7 +464,7 @@ def check_graphics(frames_dir: Path, props: dict, faces, *, every: int = 6) -> d
             img = cv2.imread(str(frames_dir / f"{f:0{width}d}.png"), cv2.IMREAD_UNCHANGED)
             if img is None or img.shape[2] < 4:
                 continue
-            alpha = img[:, :, 3] > 64
+            alpha = img[:, :, 3] > 128     # solid pixels: panels and text, not their soft drop shadows
             others = [o for o in props["graphics"] if o is not g and o["from"] <= f < o["to"]]
             if any((o.get("placement") or {}).get("anchor", "center-center") == "center-center"
                    and o["component"] != "ProgressBar" for o in others):
@@ -464,6 +537,18 @@ def check_caption_safe_zone(frames_dir: Path, props: dict, *, every: int = 15, t
             outside.append({"frame": f, "box": box})
     return {"frames_with_captions_checked": checked, "outside_safe_zone": outside[:20],
             "outside_count": len(outside)}
+
+
+def caption_sync_ok(sync: dict) -> bool:
+    """95 % of measurable captions within 80 ms. With fewer than 20 measurable captions (a Short),
+    one outlier would decide the verdict, so one miss up to 200 ms is tolerated there."""
+    n = sync.get("measured", 0)
+    if not n:
+        return True
+    if sync["within_80ms"] >= 0.95:
+        return True
+    misses = round(n * (1 - sync["within_80ms"]))
+    return n < 20 and misses <= 1 and sync.get("max_ms", 1e9) <= 200
 
 
 def check_caption_sync(wav: Path, props: dict, *, max_ms: float = 80.0, joins_s: list[float] | None = None) -> dict:
@@ -666,7 +751,7 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
         report["checks"]["captions_in_safe_zone"] = (c["safe_zone"]["outside_count"] == 0
                                                      and c["safe_zone"]["frames_with_captions_checked"] > 0)
         if c["sync"].get("measured"):
-            report["checks"]["caption_sync_80ms"] = c["sync"]["within_80ms"] >= 0.95
+            report["checks"]["caption_sync_80ms"] = caption_sync_ok(c["sync"])
     atomic_write_text(out_path.with_suffix(".json"), json.dumps(report, indent=1) + "\n")
     if on_progress:
         on_progress(1.0)

@@ -79,15 +79,40 @@ def review_once(job: Job, version: int | None = None, *, render: bool = True, fr
     ri = ReviewInput(tl=tl, words=words, style=style, job_root=job.root, render=rep, video=video, wav=wav,
                      shots=_shots(job, tl), topics=json.loads(topics_p.read_text(encoding="utf-8")) if topics_p.is_file() else None)
     issues = run_checks(ri)
+    accepted = load_accepted(job)
+    kept, waived = [], []
+    for i in issues:
+        a = next((a for a in accepted if a["check"] == i.check and (a.get("at") is None or i.at is None
+                                                                     or abs(a["at"] - i.at) <= 0.5)), None)
+        (waived if a else kept).append((i, a))
+    issues = [i for i, _ in kept]
     score = scorecard(issues)
     sheet_paths = make_sheets(job, tl, video, issues, out_dir) if sheets and video else []
     review = {"version": n, "render": rep["path"] if rep else None, "scorecard": score,
               "issues": [i.as_dict() for i in issues], "warnings": timeline_warnings(tl),
+              "accepted": [{**i.as_dict(), "accepted_because": a["reason"]} for i, a in waived],
               "sheets": [str(p.relative_to(job.root)) for p in sheet_paths]}
     atomic_write_text(out_dir / "review.json", json.dumps(review, indent=1) + "\n")
     atomic_write_text(out_dir / "report.md", report_md(job, review, issues))
     wav.unlink(missing_ok=True)
     return review
+
+
+def load_accepted(job: Job) -> list[dict]:
+    p = job.root / "review" / "accepted.json"
+    return json.loads(p.read_text(encoding="utf-8")) if p.is_file() else []
+
+
+def accept_issue(job: Job, check: str, at: float | None, reason: str) -> dict:
+    """The editor judged an issue acceptable (or not fixable without a worse change): record it
+    with the reason. Accepted issues are listed in every report, never silently dropped."""
+    items = load_accepted(job)
+    entry = {"check": check, "at": at, "reason": reason}
+    items = [i for i in items if not (i["check"] == check and i.get("at") == at)] + [entry]
+    (job.root / "review").mkdir(exist_ok=True)
+    atomic_write_text(job.root / "review" / "accepted.json", json.dumps(items, indent=1) + "\n")
+    job.log.note(f"review: accepted {check}" + (f" at {at:.2f}s" if at is not None else "") + f": {reason}")
+    return entry
 
 
 def make_sheets(job: Job, tl, video: Path, issues: list[Issue], out_dir: Path, every: float = 4.0) -> list[Path]:
@@ -136,6 +161,10 @@ def report_md(job: Job, review: dict, issues: list[Issue]) -> str:
             if i.fix:
                 lines.append(f"  Fix: `{i.fix.replace('<job>', job.id)}`" + (" (automatic)" if i.auto else ""))
         lines.append("")
+    if review.get("accepted"):
+        lines += ["## Accepted by the editor", ""] + [
+            f"- **{a['title']}**" + (f" at {tc(a['at'])}" if a.get("at") is not None else "") +
+            f" [{a['check']}]: {a['accepted_because']}" for a in review["accepted"]] + [""]
     if review.get("warnings"):
         lines += ["## Timeline warnings", ""] + [f"- {w}" for w in review["warnings"]] + [""]
     if review.get("sheets"):

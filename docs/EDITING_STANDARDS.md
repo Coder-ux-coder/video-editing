@@ -55,7 +55,7 @@ Footage type is detected by `cutroom analyze` (a guess with evidence) and confir
 | Podcast / interview | Stay on whoever is speaking; cut to reactions when they add meaning; minimal graphics. | Keep natural turn-taking; remove interviewer questions when the answer stands alone; keep laughter that lands. [Consensus] |
 | Tutorial / screen recording | Cut dead time (loading, typing that doesn't teach); zoom to the action; a callout for every UI action the viewer must copy. | Never cut a step the viewer needs to follow. [Consensus] |
 | Vlog / B-roll heavy | Edit to music and story beats; shots 1–4 s. | Sound design carries continuity. [Consensus] |
-| Shorts | A new visual beat every 1–3 s; 15–45 s target; hook in the first second; loop-friendly last line. | [Consensus] |
+| Shorts | A new visual beat every 1–3 s; one self-contained idea of 20–45 s (style allows up to 58 s; platform limit 3 min); hook in the first second, shown as a headline in the speaker's words; never opens on a line that needs earlier context; ends on a complete line, not an open question. | [Consensus]; Cutroom's finder scores these (`shorts-find`) |
 
 Speech rate: most natural presenters sit at roughly 130–170 words per minute; the pacing map
 (`analysis/<src>/pacing.json`) shows slow or flat stretches for the agent to tighten or cover.
@@ -166,6 +166,8 @@ riding: dynamics stay natural. Every render measures the final file.
 | Audio | AAC-LC or Opus, stereo, 48 kHz | [Official] |
 | Long-form frame | 16:9, 1920×1080 default; 3840×2160 when the source is 4K | Brief |
 | Shorts frame | 9:16, 1080×1920 | Brief |
+| Shorts length | Square or vertical videos up to 3 minutes uploaded on or after 15 Oct 2024 are Shorts; longer ones are long-form | [YouTube Help: Understand three-minute YouTube Shorts](https://support.google.com/youtube/answer/15424877) [Official] |
+| Shorts framing | A 9:16 window on the speaker's face (still when steady, slow follow when moving, a cut at every camera change); a blurred-fill layout when there is no single clear face; never crop a face | [Consensus]; `short-create` |
 | Shorts safe zones | Keep text and faces out of the right-hand action column (~19 % of width) and the bottom title/subscribe area (≥ ~20 % of height; some guides say up to ~35 %). Captions sit in the middle band. Check on a real phone. | Third-party templates disagree ([adkit](https://adkit.so/tools/safe-zones/youtube), [vidpros](https://vidpros.com/vertical-video-safe-zone/)) [Consensus, conservative] |
 | Thumbnails | 1280×720 (16:9), minimum width 640; under 2 MB (JPEG) | [YouTube thumbnails help](https://support.google.com/youtube/answer/72431) [Official for size; 2 MB per secondary sources] |
 | Chapters | First chapter at 0:00, at least 3 chapters, each ≥ 10 s, in ascending order | Commonly documented ([Dickinson Media Center](https://blogs.dickinson.edu/mediacenter/2026/01/12/youtube-adding-video-chapters/)) [Consensus; verify against YouTube Help] |

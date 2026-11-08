@@ -43,7 +43,7 @@ def graphics_props(tl: Timeline, *, fps: float, job_root: Path | None = None, t0
     out = []
     total = int(round(tl.duration * fps))
     for g, f0, f1 in graphic_frames(tl, fps, t0, t1):
-        params = dict(g.params)
+        params = {**_spec(g.template).props, **g.params}
         if g.template == "progress-bar":
             params["total"] = total
             params["chapters"] = [int(round(m.t * fps)) for m in tl.markers if m.kind == "chapter" and m.t > 0]
@@ -103,6 +103,8 @@ def overlay_props(tl: Timeline, style_doc: dict, *, width: int, height: int, fps
     from cutroom.captions.plan import to_remotion_props
 
     theme = style_doc.get("graphics", {}).get("theme", {})
+    if height > width and theme.get("safe_short"):      # Shorts: clear of the platform's buttons and text
+        theme = {**theme, "safe": theme["safe_short"]}
     graphics = graphics_props(tl, fps=fps, job_root=job_root, t0=t0, t1=t1, theme=theme)
     cap = None
     hidden = 0

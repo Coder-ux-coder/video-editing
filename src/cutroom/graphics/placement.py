@@ -86,18 +86,32 @@ def placement_from_box(anchor: str, box: Box) -> dict:
 
 def place(spec: TemplateSpec, t0: float, t1: float, *, faces: Callable[[float, float], list[dict]] | None,
           safe: dict, band: tuple[float, float] | None, others: list[Box], clearance: float = 0.02,
-          anchor: str | None = None) -> dict:
-    """Choose the anchor whose box covers the least face, then the least of other graphics."""
+          anchor: str | None = None, face_map: Callable[[float, dict], dict | None] | None = None) -> dict:
+    """Choose the anchor whose box covers the least face, then the least of other graphics.
+    ``face_map(t, face)`` maps a source-frame face box into the output frame (vertical crops)."""
     seen = faces(t0, t1) if faces else []
+    if face_map is not None:
+        seen = [m for m in (face_map((t0 + t1) / 2, f) for f in seen) if m]
     if spec.zone == "band":
         best = None
-        for i, yc in enumerate(BAND_CENTRES):
-            box = (0.1, round(yc - BAND_HEIGHT / 2, 4), 0.9, round(yc + BAND_HEIGHT / 2, 4))
+        portrait = safe.get("bottom", 0.93) < 0.8      # Shorts safe area: never in the platform's UI zone
+        bh = 0.12 if portrait else BAND_HEIGHT
+        if portrait:   # right under the top UI, or over the chest just above the captions
+            chest = (band[0] if band else safe["bottom"]) - clearance - bh / 2
+            centres = (safe["top"] + bh / 2 + 0.01, chest)
+        else:
+            centres = BAND_CENTRES
+        for i, yc in enumerate(centres):
+            box = (safe.get("left", 0.1) if portrait else 0.1, round(yc - bh / 2, 4),
+                   safe.get("right", 0.9) if portrait else 0.9, round(yc + bh / 2, 4))
             cover = face_cover(box, seen)
             if best is None or (cover, i) < best[0]:
                 best = ((cover, i), yc, box, cover)
-        _, yc, box, cover = best
-        return {"anchor": "band", "x": 0.5, "y": yc, "box": list(box), "face_cover": cover, "faces_sampled": len(seen)}
+        (cv, idx), yc, box, cover = best
+        out = {"anchor": "band", "x": 0.5, "y": yc, "box": list(box), "face_cover": cover, "faces_sampled": len(seen)}
+        if portrait and idx == 0:
+            out.update(valign="top", y=box[1])     # under the top UI: grow downwards, never up into it
+        return out
     if spec.zone in FREE_ZONES or not spec.anchors:
         return {"anchor": "center-center", "x": 0.5, "y": 0.5, "face_cover": 0.0}
     w, h = spec.size_hint["w"], spec.size_hint["h"]

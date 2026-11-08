@@ -57,6 +57,23 @@ output:
     short_side: 540
     timecode: true
 
+shorts:
+  # YouTube Shorts: vertical 1080x1920, up to 3 minutes (YouTube Help, since 15 Oct 2024). Defaults
+  # aim for one self-contained idea of 20-58 s (EDITING_STANDARDS.md §3, §10).
+  width: 1080
+  height: 1920
+  min_s: 20
+  max_s: 58
+  target_s: 35
+  hard_max_s: 180
+  caption_style: bold-karaoke
+  hook: {template: headline, duration_s: 3.0}
+  reframe:
+    face_presence_min: 0.6     # share of 1 s samples with a face below which a clip uses the blurred-fill layout
+    static_spread: 0.035       # face-centre spread (frame widths) under which the crop stays still
+    max_speed: 0.12            # crop centre speed limit (frame widths per second): no whip pans
+  fill_blur: 28                # Gaussian sigma (px at 1080 wide) of the blurred background
+
 captions:
   # Which style `cutroom captions` uses when none is given.
   default_style: clean
@@ -167,6 +184,8 @@ graphics:
     # ease-in, items staggered 3-6 frames.
     motion: {enter_frames: 12, exit_frames: 8, stagger_frames: 4, spring_damping: 18, spring_stiffness: 170}
     safe: {left: 0.06, right: 0.94, top: 0.07, bottom: 0.93}
+    # Shorts: clear of the top bar, the right action column and the title/description at the bottom.
+    safe_short: {left: 0.06, right: 0.81, top: 0.14, bottom: 0.70}
   rules:
     min_hold_s: 1.0             # text stays at least 1 s ...
     hold_per_3_words_s: 0.3     # ... plus 0.3 s per 3 words
