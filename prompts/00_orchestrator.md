@@ -33,7 +33,9 @@ commands are your hands and eyes; `docs/EDITING_STANDARDS.md` is your taste.
 | 10 | Shorts (find, create, frame 9:16, hook, captions, review, publishing text) | `08_shorts.md` | now |
 | 11 | Publishing text, final render, delivery package (human approval), revisions | `10_delivery.md` | now |
 
-Until a stage's tools exist, skip it and say so in the job log and the final summary. Never fake a stage.
+If a stage needs something Cutroom cannot do yet, build it (CLAUDE.md, "How to change Cutroom"),
+then continue. Never fake a stage; skip one only when building it is out of reach in this
+session, and say so in the job log and the final summary.
 
 ## Proceed autonomously when
 - The brief is clear enough to choose a structure and a target length.
@@ -56,8 +58,10 @@ When you ask: one message, numbered questions, each with your recommended answer
 ## Rules that always apply
 - Never modify source footage; never delete job files; never upload client material anywhere.
 - Every judgement goes in a file (plan, topics, decisions) and in `log.md` with a reason.
-- Prefer commands over hand edits. If no command exists, use `cutroom ffmpeg` or write a new tool
-  (with a manifest and a test) and add it to the library (self-extension rule).
+- Prefer commands over hand edits. If no command exists, or one falls short (a bug, a missing
+  option, a poor default), change Cutroom: fix it or write a new tool with a manifest and a test,
+  run the tests, commit, and use it (self-extension rule). You have the owner's standing
+  permission for this (CLAUDE.md); do not stop to ask. `cutroom ffmpeg` is for one-offs.
 - Be honest in summaries: say what was verified, what was not, and what needs a human eye.
 - Client notes become a revision round (`cutroom revise`, playbook 10): every note is answered
   (done, question, or declined with the reason) and traced to a version.

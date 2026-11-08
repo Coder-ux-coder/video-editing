@@ -75,6 +75,7 @@ is `jobs/<id>/log.md`; every version is in `jobs/<id>/versions/` (`cutroom versi
 
 | | |
 |---|---|
+| `CLAUDE.md` | For Claude: setup, running jobs, and standing permission to change and extend the code |
 | `docs/GUIDE.md` | How a person runs a job, approves it and sends notes |
 | `docs/CHARTER.md` | Decisions, detected machine, open questions |
 | `docs/ARCHITECTURE.md` | How the system works and the phase plan |
