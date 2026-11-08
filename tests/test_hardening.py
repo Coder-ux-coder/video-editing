@@ -267,3 +267,35 @@ def test_an_interrupted_ffmpeg_never_outlives_the_command(monkeypatch, tmp_path)
         run_ffmpeg(["-y", "-f", "lavfi", "-i", "testsrc2=s=1280x720:r=25:d=600", "-c:v", "libx264", "-preset", "slow",
                     str(tmp_path / "long.mp4")], desc="long", duration=600.0, on_progress=interrupt)
     assert started and started[0].poll() is not None            # FFmpeg is gone, not orphaned
+
+
+def test_sigterm_stops_the_command_and_its_ffmpeg(jobs_base, tmp_path):
+    """`kill` (SIGTERM) is handled like Ctrl-C: the command stops, FFmpeg in its own process group
+    is stopped too, and the job log records the failure."""
+    import os
+    import signal
+    import subprocess
+    import sys
+    import time
+
+    from cutroom.job import Job
+
+    if os.name != "posix":
+        pytest.skip("POSIX signals")
+    Job.create("sigterm-test")
+    marker = f"sigterm_{os.getpid()}.mp4"
+    p = subprocess.Popen([sys.executable, "-m", "cutroom", "ffmpeg", "sigterm-test", "--", "-f", "lavfi", "-i",
+                          "testsrc2=s=1280x720:r=25:d=600", "-c:v", "libx264", "-preset", "slow", f"renders/{marker}"],
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=os.environ.copy())
+
+    def ffmpeg_running() -> bool:                    # processes named ffmpeg, not the cutroom process
+        return marker in subprocess.run(["pgrep", "-a", "ffmpeg"], capture_output=True, text=True).stdout
+
+    t0 = time.time()
+    while not ffmpeg_running() and time.time() - t0 < 30:
+        time.sleep(0.2)
+    assert ffmpeg_running(), p.communicate(timeout=5)
+    p.send_signal(signal.SIGTERM)
+    assert p.wait(timeout=30) == 130
+    time.sleep(0.5)
+    assert not ffmpeg_running()

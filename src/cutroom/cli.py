@@ -390,7 +390,18 @@ from cutroom.tools.registry import register_all  # noqa: E402
 register_all(app)
 
 
+def _terminate_like_ctrl_c(signum, frame) -> None:
+    raise KeyboardInterrupt
+
+
 def main() -> None:
+    import signal
+
+    # `kill`, a shutdown or a task runner sends SIGTERM; by default Python would die on the spot,
+    # leaving FFmpeg or Remotion running in their own process group. Handled like Ctrl-C instead:
+    # children are stopped, finished work is kept, and the same command resumes.
+    if hasattr(signal, "SIGTERM"):
+        signal.signal(signal.SIGTERM, _terminate_like_ctrl_c)
     try:
         app()
     except CutroomError as e:

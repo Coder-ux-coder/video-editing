@@ -12,7 +12,7 @@ HEAD=$($C versions "$J" --json | python3 -c "import json,sys;print(next(v['versi
 TMP=$JOB/renders/$(printf ".tmp_v%03d_preview" "$HEAD")
 rm -rf "$TMP"; rm -f "$JOB/renders/$(printf "v%03d_preview" "$HEAD").json"
 
-# 1. Start a full preview render; interrupt it (as Ctrl-C would) once the audio, the overlay
+# 1. Start a full preview render; interrupt it once the audio, the overlay
 #    frames and the first video run are finished, 15 s into the next run; run the same command again.
 $C render "$J" --mode preview --json > "$OUT/first.json" 2> "$OUT/first.err" &
 PID=$!
@@ -29,7 +29,7 @@ while True:
         pass
     time.sleep(2)
 EOF
-kill -INT "$PID"; wait "$PID" || true
+kill -TERM "$PID"; wait "$PID" || true      # (a script's background jobs ignore SIGINT; TERM is handled like Ctrl-C)
 echo "interrupted; kept: $(ls "$TMP" | tr '\n' ' ')"
 T0=$(date +%s)
 $C render "$J" --mode preview --json > "$OUT/resumed.json"
