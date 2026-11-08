@@ -101,8 +101,8 @@ def sync_graphics(tl: Timeline) -> None:
     follow the new length. If a graphic's moment was trimmed (a shortened pause), it moves to the
     next kept moment within 1.5 s; if its content is gone, it keeps its place and is flagged."""
     dur = tl.duration
-    for g in tl.graphics:
-        if g.whole:
+    for g in [*tl.graphics, *tl.broll, *tl.audio.music, *tl.audio.sfx]:
+        if getattr(g, "whole", False):
             g.start, g.end = 0.0, round(dur, 3)
             continue
         if not g.attach:

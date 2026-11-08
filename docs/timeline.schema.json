@@ -1,5 +1,105 @@
 {
  "$defs": {
+  "AudioBed": {
+   "description": "A music bed or a sound effect placed on the timeline (mixed after the voice chain).",
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "kind": {
+     "enum": [
+      "music",
+      "sfx"
+     ],
+     "title": "Kind",
+     "type": "string"
+    },
+    "asset": {
+     "description": "Library asset id (assets/library), with its licence.",
+     "title": "Asset",
+     "type": "string"
+    },
+    "start": {
+     "title": "Start",
+     "type": "number"
+    },
+    "end": {
+     "title": "End",
+     "type": "number"
+    },
+    "src_in": {
+     "default": 0.0,
+     "description": "Offset into the file (s); music loops if shorter than the span.",
+     "title": "Src In",
+     "type": "number"
+    },
+    "gain_db": {
+     "default": 0.0,
+     "description": "Trim relative to the planned level (music under speech, SFX).",
+     "title": "Gain Db",
+     "type": "number"
+    },
+    "fade_in": {
+     "default": 0.0,
+     "title": "Fade In",
+     "type": "number"
+    },
+    "fade_out": {
+     "default": 0.0,
+     "title": "Fade Out",
+     "type": "number"
+    },
+    "duck": {
+     "default": true,
+     "description": "Music dips under speech.",
+     "title": "Duck",
+     "type": "boolean"
+    },
+    "attach": {
+     "anyOf": [
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Attach"
+    },
+    "whole": {
+     "default": false,
+     "title": "Whole",
+     "type": "boolean"
+    },
+    "license": {
+     "default": "",
+     "title": "License",
+     "type": "string"
+    },
+    "credit": {
+     "default": "",
+     "title": "Credit",
+     "type": "string"
+    },
+    "reason": {
+     "default": "",
+     "title": "Reason",
+     "type": "string"
+    }
+   },
+   "required": [
+    "id",
+    "kind",
+    "asset",
+    "start",
+    "end"
+   ],
+   "title": "AudioBed",
+   "type": "object"
+  },
   "AudioSpec": {
    "properties": {
     "target_lufs": {
@@ -23,16 +123,98 @@
      "type": "object"
     },
     "music": {
-     "description": "Each with path, licence, gain, start/end.",
      "items": {
-      "additionalProperties": true,
-      "type": "object"
+      "$ref": "#/$defs/AudioBed"
      },
      "title": "Music",
+     "type": "array"
+    },
+    "sfx": {
+     "items": {
+      "$ref": "#/$defs/AudioBed"
+     },
+     "title": "Sfx",
      "type": "array"
     }
    },
    "title": "AudioSpec",
+   "type": "object"
+  },
+  "BRoll": {
+   "description": "A cutaway over the main picture (the main audio continues): a still with slow motion\n(Ken Burns) or a video clip, from the licence-tracked library.",
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "asset": {
+     "title": "Asset",
+     "type": "string"
+    },
+    "kind": {
+     "enum": [
+      "image",
+      "video"
+     ],
+     "title": "Kind",
+     "type": "string"
+    },
+    "start": {
+     "title": "Start",
+     "type": "number"
+    },
+    "end": {
+     "title": "End",
+     "type": "number"
+    },
+    "src_in": {
+     "default": 0.0,
+     "title": "Src In",
+     "type": "number"
+    },
+    "motion": {
+     "additionalProperties": true,
+     "description": "Ken Burns: zoom from scale0 to scale1, centre (x, y) moving from 0 to 1.",
+     "title": "Motion",
+     "type": "object"
+    },
+    "attach": {
+     "anyOf": [
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Attach"
+    },
+    "license": {
+     "default": "",
+     "title": "License",
+     "type": "string"
+    },
+    "credit": {
+     "default": "",
+     "title": "Credit",
+     "type": "string"
+    },
+    "reason": {
+     "default": "",
+     "title": "Reason",
+     "type": "string"
+    }
+   },
+   "required": [
+    "id",
+    "asset",
+    "kind",
+    "start",
+    "end"
+   ],
+   "title": "BRoll",
    "type": "object"
   },
   "CaptionCue": {
@@ -1083,6 +1265,13 @@
     "$ref": "#/$defs/Graphic"
    },
    "title": "Graphics",
+   "type": "array"
+  },
+  "broll": {
+   "items": {
+    "$ref": "#/$defs/BRoll"
+   },
+   "title": "Broll",
    "type": "array"
   },
   "captions": {

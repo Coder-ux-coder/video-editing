@@ -13,7 +13,7 @@ inputs, procedure (exact `cutroom` commands), decision rules, outputs, failure h
 | `04_rough_cut.md` | Rough cut and verification | Written (Phase 1) |
 | `05_audio.md` | Voice chain and loudness | Written (Phase 2) |
 | `06_graphics_and_captions.md` | Captions; motion graphics | Written (Phases 2–3) |
-| `07_broll_and_music.md` | B-roll, music, SFX | Phase 6 |
+| `07_broll_and_music.md` | B-roll, music, SFX, thumbnail | Written (Phase 6) |
 | `08_shorts.md` | Shorts | Written (Phase 5) |
 | `09_review_loop.md` | Automatic review and fixes | Written (Phase 4) |
 | `10_delivery.md` | Delivery package and revisions | Phase 7 |

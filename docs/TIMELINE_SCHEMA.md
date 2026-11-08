@@ -17,6 +17,7 @@ never hand-edit version files, use cutroom commands (each writes a new version).
 | `clips` | `list[Clip]` | `[]` |  |
 | `cuts` | `list[CutDecision]` | `[]` | Every removed source range, with reasons. |
 | `graphics` | `list[Graphic]` | `[]` |  |
+| `broll` | `list[BRoll]` | `[]` |  |
 | `captions` | `Captions \| None` | `None` |  |
 | `audio` | `AudioSpec` | auto |  |
 | `markers` | `list[Marker]` | `[]` |  |
@@ -201,7 +202,8 @@ never hand-edit version files, use cutroom commands (each writes a new version).
 | `true_peak_dbtp` | `float` | `-1.0` |  |
 | `voice_chain` | `dict` | `{}` |  |
 | `ducking` | `dict` | `{}` |  |
-| `music` | `list[dict]` | `[]` | Each with path, licence, gain, start/end. |
+| `music` | `list[AudioBed]` | `[]` |  |
+| `sfx` | `list[AudioBed]` | `[]` |  |
 
 ## Marker
 

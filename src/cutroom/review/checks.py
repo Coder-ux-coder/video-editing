@@ -215,6 +215,8 @@ def check_cuts(ri: ReviewInput) -> list[Issue]:
         if not wf:
             continue
         for w in wf.words:
+            if w.end - w.start < 0.03:
+                continue        # zero-length words are timing artefacts of the recogniser, not speech
             if c.src_in - 0.002 <= w.start < c.src_in + 0.015 and c.src_in > 0.05 and w.start - c.src_in < 0.015:
                 clipped.append((c.start, w.text, "start"))
             if c.src_out - 0.015 < w.end <= c.src_out + 0.002 and c.src_out < tl.source(c.source).duration - 0.05:
@@ -482,6 +484,7 @@ def check_structure(ri: ReviewInput) -> list[Issue]:
     # Static stretches: no cut, camera change or graphic for a long time.
     changes = sorted({0.0, round(tl.duration, 3)} | {round(c.start, 3) for c in clips} |
                      {round(g.start, 3) for g in tl.graphics if not g.whole} |
+                     {round(x, 3) for b in tl.broll for x in (b.start, b.end)} |
                      {round(c.to_timeline(s), 3) for c in clips for s in ri.shots.get(c.source, [])
                       if c.src_in < s < c.src_out})
     gaps = [(a, b) for a, b in zip(changes, changes[1:]) if b - a > ri.style.get("pacing", {}).get("max_static_s", 25.0)]
@@ -533,6 +536,35 @@ def _src_to_tl(tl: Timeline, source: str, t: float) -> float | None:
     return round(later[0].start, 3) if later else None
 
 
+def check_media(ri: ReviewInput) -> list[Issue]:
+    """B-roll, music and effects: licences recorded, sensible b-roll lengths, music under the voice."""
+    tl = ri.tl
+    out: list[Issue] = []
+    for b in [*tl.broll, *tl.audio.music, *tl.audio.sfx]:
+        if not b.license:
+            out.append(Issue("media.no_license", "video", "blocker", f"{b.id} has no recorded licence",
+                             f"{b.asset}: every asset needs a free licence on record.", at=b.start,
+                             fix=f"Remove it, or re-add it from the library (`cutroom assets`)"))
+        elif b.license.startswith("CC-BY") and not b.credit:
+            out.append(Issue("media.no_credit", "video", "major", f"{b.id} needs an attribution",
+                             f"{b.asset} is {b.license}: the credit must go in the description.", at=b.start, fix=None))
+    for b in tl.broll:
+        d = b.end - b.start
+        if d < 1.5 or d > 8.0:
+            out.append(Issue("media.broll_length", "video", "minor", f"B-roll {b.id} is {d:.1f}s",
+                             "Cutaways read best at 2–5 s (EDITING_STANDARDS §9).", at=b.start,
+                             fix=f"Re-add {b.asset} with --duration 3.5"))
+    mix = (ri.render or {}).get("mix") or {}
+    if mix.get("speech_to_music_db") is not None and mix["speech_to_music_db"] < 15:
+        out.append(Issue("audio.music_level", "audio", "major", "Music fights the voice",
+                         f"Music only {mix['speech_to_music_db']} dB under speech (needs ≥ 15).",
+                         fix="cutroom music … --gain -6 (or re-add the bed)"))
+    if len(tl.audio.sfx) > max(3, 0.6 * max(1, len(tl.track_clips()) - 1)):
+        out.append(Issue("media.sfx_overuse", "audio", "minor", "Too many sound effects",
+                         f"{len(tl.audio.sfx)} effects: a whoosh on every cut is an amateur tell.", fix=None))
+    return out
+
+
 def check_short(ri: ReviewInput) -> list[Issue]:
     """Vertical Shorts: length within the platform limit and the style's range, and the face kept
     inside the 9:16 crop."""
@@ -573,7 +605,8 @@ def check_short(ri: ReviewInput) -> list[Issue]:
     return out
 
 
-ALL_CHECKS = (check_audio, check_cuts, check_captions, check_graphics, check_video, check_structure, check_short)
+ALL_CHECKS = (check_audio, check_cuts, check_captions, check_graphics, check_video, check_structure, check_short,
+              check_media)
 
 
 def run_checks(ri: ReviewInput) -> list[Issue]:

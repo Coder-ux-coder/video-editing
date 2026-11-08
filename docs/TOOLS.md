@@ -13,6 +13,7 @@ Commands provided by modules in `src/cutroom/tools/` (see `registry.py`).
 | command | group | what it does | writes a new timeline version | tests |
 |---|---|---|---|---|
 | `analyze` | analysis | Run all perception on a job and write analysis/summary.md. | no | `tests/test_analysis.py` |
+| `analyze-reference` | analysis | Learn pacing from a reference video into styles/<name>.style.yaml. | no | `tests/test_media.py` |
 | `fix-words` | analysis | Correct misheard words (names, terms) in the transcript, keeping their timing. | no | `tests/test_analysis.py` |
 | `frames` | analysis | Labelled frame grid at chosen times: visual evidence on demand. | no | `tests/test_analysis.py` |
 | `topics` | analysis | Prepare or check the topic-map task (agent-in-the-loop). | no | `tests/test_analysis.py` |
@@ -20,6 +21,7 @@ Commands provided by modules in `src/cutroom/tools/` (see `registry.py`).
 | `loudness` | audio | Measure integrated loudness, LRA and true peak of a file. | no | `tests/test_audio.py` |
 | `cut` | cutting | Remove a range or whole sentences by hand, refusing mid-word cuts. | yes | `tests/test_cutting.py` |
 | `detect-retakes` | cutting | Find stumbles, false starts and repeated sentences; optionally cut them. | yes | `tests/test_cutting.py` |
+| `extend` | cutting | Lengthen a clip into the removed pause next to it (never over words). | yes | `tests/test_cutting.py` |
 | `move` | cutting | Reorder: move sentences (or a source range) to another point in the edit. | yes | `tests/test_cutting.py` |
 | `remove-fillers` | cutting | Remove um/uh (and optionally discourse markers) with natural joins. | yes | `tests/test_cutting.py` |
 | `remove-silence` | cutting | Shorten long pauses and trim head/tail, keeping natural rhythm. | yes | `tests/test_cutting.py` |
@@ -35,6 +37,14 @@ Commands provided by modules in `src/cutroom/tools/` (see `registry.py`).
 | `template-preview` | graphics | Render still previews of graphics templates to look at before using them. | no | `tests/test_graphics.py` |
 | `templates` | graphics | List motion-graphics templates, their variants and parameters. | no | `tests/test_graphics.py` |
 | `transition` | graphics | Put an overlay transition (dip, flash, whip, swipe, glitch) on a cut. | yes | `tests/test_graphics.py` |
+| `asset-add` | media | Add a file you are allowed to use to the library, with its licence. | no | `tests/test_media.py` |
+| `asset-fetch` | media | Search Wikimedia Commons for free-licensed stills and download chosen ones. | no | `tests/test_media.py` |
+| `assets` | media | List the licence-tracked asset library (b-roll, music, sound effects). | no | `tests/test_media.py` |
+| `broll-add` | media | Cut away to a library still or clip over the speaker (audio continues). | yes | `tests/test_media.py` |
+| `broll-suggest` | media | Match what is said to library stills/clips: where b-roll could illustrate. | no | `tests/test_media.py` |
+| `music` | media | Put a music bed under part or all of the edit (generated or from the library). | yes | `tests/test_media.py` |
+| `sfx` | media | Add a sound effect at a moment, or on every overlay transition. | yes | `tests/test_media.py` |
+| `thumbnails` | media | Thumbnail candidates (1280x720): best face frames, title away from the face. | no | `tests/test_media.py` |
 | `render` | render | Render a timeline version (fast preview or full-quality final). | no | `tests/test_render.py` |
 | `review` | review | Review a version: render, automatic checks, frame sheets, report and scorecard; --fix loops. | yes | `tests/test_review.py` |
 | `short-create` | shorts | Create a 9:16 Short job from a picked moment or a timeline range. | yes | `tests/test_shorts.py` |
@@ -68,6 +78,20 @@ Parameters:
 - `--force`, `--no-force`: Recompute even if results exist.
 - `--json`: Print machine-readable JSON on stdout.
 
+## `cutroom analyze-reference`
+
+Measures the reference (referenced in place, never copied or uploaded): shot lengths and
+cuts per minute, speech rate, the pauses its editor kept between words and sentences, and
+loudness; writes a style that inherits the defaults and overrides pauses and pacing, with
+the measurements in its header. Use it with `cutroom assemble --style <name>`.
+
+Parameters:
+
+- `PATH`: Reference video (e.g. references/clip.mp4).
+- `--name`: Style name to write.
+- `--force`, `--no-force`: Replace an existing style of that name.
+- `--json`: Print machine-readable JSON on stdout.
+
 ## `cutroom assemble`
 
 Create a timeline from the job's main sources (nothing removed yet). Saves a new version.
@@ -77,6 +101,45 @@ Parameters:
 - `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
 - `--source`, `-s`: Source id(s), e.g. S01. Default: all.
 - `--style`: Style name (styles/<name>.style.yaml). (default: default)
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom asset-add`
+
+Copy a file into the library with a licence record. Client-provided media belong in the job's
+inputs/ folder instead (they are not stock).
+
+Parameters:
+
+- `PATH`: File to add.
+- `--kind`: image, video, music or sfx.
+- `--license`: public domain, CC0, or CC BY 4.0 (others are refused).
+- `--author`: Author (required for CC BY). (default: )
+- `--title`: Title. (default: )
+- `--source-url`: Where it came from. (default: )
+- `--tag`: Keywords for b-roll matching (repeat).
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom asset-fetch`
+
+Lists Commons files whose licence (read from Commons' own metadata) is public domain, CC0
+or CC BY; share-alike, non-commercial and no-derivatives files are skipped. Only free assets
+are downloaded; nothing is ever uploaded.
+
+Parameters:
+
+- `--query`: Search words, e.g. 'White Sands fossil footprints'.
+- `--limit`: How many results to list. (default: 8)
+- `--pick`: Download these result numbers, e.g. 1,3,4 (or 'all').
+- `--tag`: Extra keywords for matching (repeat).
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom assets`
+
+Every asset with its licence, author and tags. Only public domain, CC0 and CC BY are ever accepted.
+
+Parameters:
+
+- `--kind`: image, video, music or sfx.
 - `--json`: Print machine-readable JSON on stdout.
 
 ## `cutroom audio`
@@ -90,6 +153,35 @@ Parameters:
 - `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
 - `--target-lufs`: Integrated loudness target (default from style: -14).
 - `--denoise`, `--no-denoise`: Force denoise on/off (default: decided from the noise measurement).
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom broll-add`
+
+The picture cuts to the asset while the speech continues; stills move slowly (Ken Burns).
+Its licence and credit are stored in the timeline (credits go in the description).
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `ASSET`: Asset id.
+- `--at`: Timeline time it starts (s).
+- `--duration`: Seconds (2-5 reads well). (default: 3.5)
+- `--move`: Ken Burns: in, out, left, right or none. (default: in)
+- `--src-in`: Video: offset into the clip (s). (default: 0.0)
+- `--reason`: What it shows and why here. (default: )
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom broll-suggest`
+
+Suggestions only: look at each asset and the moment before adding (b-roll must show what is
+being said, never contradict it).
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--top`: How many. (default: 10)
 - `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
 - `--json`: Print machine-readable JSON on stdout.
 
@@ -199,6 +291,21 @@ upload to YouTube. Always deliver these, even when captions are burned in.
 Parameters:
 
 - `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom extend`
+
+Give a clip more air: e.g. let the last word ring out (`extend <job> last --by 0.4`), or
+lengthen a too-short shot. Only removed material without words can come back.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `CLIP`: Clip id (see `cutroom show`), or 'last' / 'first'.
+- `--by`: Seconds to add.
+- `--edge`: out (end) or in (start). (default: out)
+- `--reason`: Why. (default: )
 - `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
 - `--json`: Print machine-readable JSON on stdout.
 
@@ -380,6 +487,25 @@ Parameters:
 - `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
 - `--json`: Print machine-readable JSON on stdout.
 
+## `cutroom music`
+
+Music sits 12 dB under the measured speech level in pauses and dips a further 8 dB while
+anyone speaks (style audio.music), fading in and out; the render mixes it under the processed
+voice before mastering and reports the measured speech-to-music ratio.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--generate`: Generate a bed: calm, documentary, upbeat or warm.
+- `--asset`: A music asset id from the library.
+- `--from`: Timeline start (s).
+- `--to`: Timeline end (s).
+- `--whole`, `--no-whole`: Under the whole video.
+- `--gain`: Trim (dB) relative to the planned level. (default: 0.0)
+- `--duck`, `--no-duck`: Dip under speech.
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
+- `--json`: Print machine-readable JSON on stdout.
+
 ## `cutroom new`
 
 Create a job workspace: jobs/<job-id>/ with brief.md, log.md and stage folders.
@@ -521,6 +647,21 @@ Parameters:
 - `--retake-confidence`: Apply retake candidates at or above this confidence. (default: 0.75)
 - `--fresh`, `--no-fresh`: Start from a new assembly even if a timeline exists.
 - `--render`, `--no-render`: Render a preview at the end.
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom sfx`
+
+Sound effects are generated (no licence questions) and used sparingly: a whoosh on a
+transition, a pop on a list item. A whoosh on every cut is an amateur tell.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--kind`: whoosh, riser, impact, pop or ding. (default: whoosh)
+- `--at`: Timeline time (s).
+- `--transitions`: One on every overlay transition.
+- `--gain`: Trim (dB) relative to 8 dB under speech. (default: 0.0)
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
 - `--json`: Print machine-readable JSON on stdout.
 
 ## `cutroom short-create`
@@ -668,6 +809,23 @@ which parameters are facts that must be sourced, and where it sits on screen.
 
 Parameters:
 
+- `--json`: Print machine-readable JSON on stdout.
+
+## `cutroom thumbnails`
+
+Candidates from frames where the speaker's face is large, sharp and well exposed, spread over
+the video; the title sits on the side away from the face on a gradient. Checked: 1280x720, under
+2 MB, text contrast, face clear of the text. Look at them and --pick one.
+
+Parameters:
+
+- `JOB_ID`: Job id (folder name under jobs/) or path to a job folder.
+- `--text`: 2-5 words the video supports (numbers are checked).
+- `--emphasis`, `-e`: Word(s) in the accent colour.
+- `--fact`, `-f`: Source for numbers in the text.
+- `--count`: How many candidates. (default: 3)
+- `--pick`: Choose candidate N as the video's thumbnail.
+- `--version`, `-v`: Timeline version (v003, 3, HEAD, HEAD~1). Default: HEAD.
 - `--json`: Print machine-readable JSON on stdout.
 
 ## `cutroom topics`

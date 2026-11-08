@@ -250,3 +250,29 @@ def restore(job_id: JobArg, cut_ids: Annotated[list[str], typer.Argument(help="C
     emit(as_json, {"version": n, "restored": [c.id for c in restored]})
     if not as_json:
         out.print(f"{summary} → v{n:03d}")
+
+
+@tool(ToolManifest("extend", "Lengthen a clip into the removed pause next to it (never over words).", "cutting",
+                   inputs=["timeline HEAD", "words.json"], outputs=["timeline vN+1"], tests=TESTS, changes_timeline=True))
+def extend(job_id: JobArg, clip: Annotated[str, typer.Argument(help="Clip id (see `cutroom show`), or 'last' / 'first'.")],
+           by: Annotated[float, typer.Option(help="Seconds to add.")],
+           edge: Annotated[str, typer.Option(help="out (end) or in (start).")] = "out",
+           reason: Annotated[str, typer.Option(help="Why.")] = "",
+           version: VersionOpt = None, as_json: JsonOpt = False) -> None:
+    """Give a clip more air: e.g. let the last word ring out (`extend <job> last --by 0.4`), or
+    lengthen a too-short shot. Only removed material without words can come back."""
+    from cutroom.timeline.ops import extend_clip_edge
+
+    ctx = open_edit(job_id, version)
+    tl = ctx.tl.model_copy(deep=True)
+    clips = tl.track_clips()
+    cid = clips[-1].id if clip == "last" else (clips[0].id if clip == "first" else clip)
+    if edge not in ("in", "out"):
+        raise RefusedError(f"Bad edge '{edge}'.", fix="Use --edge out or --edge in.")
+    cut = extend_clip_edge(tl, cid, edge, by, words=ctx.words)
+    summary = f"extend {cid} {edge} by {by:.2f}s into {cut.id}" + (f" ({reason})" if reason else "")
+    ctx.job.log.section(f"extend (from v{ctx.base:03d})")
+    n = store.save_new(ctx.job, tl, command="extend", summary=summary, parent=ctx.base)
+    emit(as_json, {"version": n, "clip": cid})
+    if not as_json:
+        out.print(f"{summary} → v{n:03d}")

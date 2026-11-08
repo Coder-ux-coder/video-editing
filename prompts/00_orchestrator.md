@@ -26,7 +26,7 @@ commands are your hands and eyes; `docs/EDITING_STANDARDS.md` is your taste.
 | 5 | Rough cut | `04_rough_cut.md` | now |
 | 6 | Audio polish | `05_audio.md` | now |
 | 7 | Captions and motion graphics (lower thirds, facts, punch-ins, transitions) | `06_graphics_and_captions.md` | now |
-| 8 | B-roll and music | `07_broll_and_music.md` | Phase 6 |
+| 8 | B-roll, music, sound effects, thumbnail | `07_broll_and_music.md` | now |
 | 9 | Review loop (render → checks → look at frames → fix, ≤ 4 rounds) | `09_review_loop.md` | now |
 | 10 | Shorts (find, create, frame 9:16, hook, captions, review, publishing text) | `08_shorts.md` | now |
 | 11 | Delivery package | `10_delivery.md` | Phase 7 |

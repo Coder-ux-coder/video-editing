@@ -3,7 +3,7 @@
 An honest map of what Cutroom can do today, what it can do partially, and what it cannot
 do yet, with the plan for each gap. Updated at the end of every phase.
 
-Last updated: Phase 5 (Shorts).
+Last updated: Phase 6 (b-roll, music, effects, thumbnails).
 
 ## Can do (built and tested)
 
@@ -50,6 +50,12 @@ Last updated: Phase 5 (Shorts).
 | Shorts: publishing text | `short-publish` | Agent task + check: title ≤ 100 chars, 3–5 hashtags starting #Shorts, numbers said in the Short, credit line, no hype |
 | Batch Shorts | `shorts` | find → create → captions → hook (→ preview) in one command |
 | Transcript corrections | `fix-words` | Misheard names/terms fixed with timing kept; re-applied on rebuild; propagated to Shorts |
+| Licence-tracked asset library | `assets`, `asset-add`, `asset-fetch` | Public domain / CC0 / CC BY only, licence read from the source's metadata (Wikimedia Commons), sidecar per file, de-duplicated by hash |
+| B-roll cutaways | `broll-suggest`, `broll-add` | Keyword suggestions; stills with Ken Burns or video clips; attached to content; frame-exact; small pictures refused |
+| Music beds | `music` | Generated (calm, documentary, upbeat, warm; seamless loops) or from the library; 12 dB under speech, ducked 8 dB more under speech; measured in every render |
+| Sound effects | `sfx` | Generated whoosh, riser, impact, pop, ding; on transitions or at moments |
+| Thumbnails | `thumbnails` | Candidates from the best face frames, title away from the face, 1280x720 < 2 MB, contrast and face checks, sourced numbers; `--pick` |
+| Style from a reference video | `analyze-reference` | Pauses and pacing measured into `styles/<name>.style.yaml` |
 | Accepting an issue | `review --accept CHECK@T --reason …` | Editor's judgement recorded in every later report |
 | Autonomous fix loop | `review --fix` | Up to 4 rounds of review → safe fixes (pauses, fillers, flash shots, punch-ins, graphics, captions, audio) → review; stops at the human gate. Seeded-defect test: 9/9 found and fixed in one fix round |
 
@@ -67,6 +73,8 @@ Last updated: Phase 5 (Shorts).
 | Graphics size estimate | Placement uses a size hint per template; long text can be wider than estimated (the render check then fails and says so) | Measure text with the theme fonts before placing |
 | J/L cuts | Audio and picture are cut together; a flash shot that holds a word cannot be fixed without one | Separate audio/picture edges per join |
 | Shorts with several speakers | Two-shots use the fill layout; no active-speaker switching | Needs diarization (Phase 8) |
+| B-roll matching | Keyword match between sentences and asset tags; relevance is judged by the agent looking at the picture | Visual-semantic matching (local CLIP-style model) |
+| Music | Generated beds are simple pads; no free music source with machine-readable licences was reachable | Library music added by hand (`asset-add`) with its licence |
 | Crossfades | Transitions are overlays over a cut; true video crossfades (overlapping clips) are not rendered | Add when a client style asks for them |
 | Review of taste | Framing, expressions at cut points, whether graphics help, whether the hook lands: contact sheets are produced, the agent judges them | Expression/blink detection at cut points |
 | Black/frozen frame and level checks | Measured on the render (FFmpeg blackdetect/freezedetect) and on per-word levels; lip sync is not measured | Lip-sync check for separately recorded audio |
@@ -76,7 +84,6 @@ Last updated: Phase 5 (Shorts).
 
 | Capability | Phase |
 |---|---|
-| B-roll, music, SFX, thumbnails | 6 |
 | Client styles, revision notes → timeline edits, OTIO/FCPXML export, delivery package | 7 |
 | Batch queue, crash resume, golden regression suite | 8 |
 | Speed ramps, stabilisation, colour matching, multicam sync, green screen, PiP, split screen, cursor-following zooms, sponsor segments, A/B thumbnails | Scheduled across Phases 2–7 |

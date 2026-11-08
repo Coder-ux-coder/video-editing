@@ -182,6 +182,18 @@ Conclusions:
 | An issue can be accepted with a reason | Short 3 keeps a 0.26 s flash shot whose sliver holds "But did": trimming changes the words, lengthening brings back a filler. The editor's acceptance and reason are written into every later report; a J-cut would fix it properly (not supported yet). |
 | `fix-words` for misheard names | "white sand" (low confidence) for "White Sands" reached the captions; corrections keep timing, are re-applied when words are rebuilt, and propagate to Shorts. |
 
+### 4.9 Phase 6 decisions
+
+| Decision | Why / evidence |
+|---|---|
+| Stock stills from Wikimedia Commons, licence read from Commons' metadata | Commons and nps.gov were reachable; Freesound and Pixabay were blocked (403). Commons gives a machine-readable licence per file, so the allowlist (public domain, CC0, CC BY) is enforced in code. Found public-domain NPS/USGS photos of the very trackways the interview is about. |
+| Polite fetching | Wikimedia only serves standard thumbnail widths and throttles originals (HTTP 429); the fetcher asks for standard widths (1920, else 1280), paces downloads and honours `Retry-After`. During the run the shared network was throttled for minutes at a time; the fetch completed for 4 of 5 chosen files. |
+| Music and sound effects generated (numpy), library music optional | No reachable free music source with reliable machine-readable licences; generated beds have no rights questions. Loops are seamless by construction (oscillators phase-locked to the loop length, circular envelopes and reverb), verified by measuring the sample jump at the loop point. |
+| Mixing after the voice chain, before mastering; levels relative to measured speech | Compression never pumps on music; the final −14 LUFS holds whatever the bed. Music 12 dB under speech, a further 8 dB ducked while anyone speaks (look-ahead): measured 20.1 dB under speech in the acceptance. |
+| B-roll as its own timeline list, attached to content like graphics | Cutaways move with their sentence when the edit changes. Rendered by pre-rendering each cutaway to exact frames (Ken Burns via zoompan on a 2× upscale, so the slow move has no pixel jitter) and overlaying it inside the runs, under captions and graphics; frame-exact (tested). Pictures needing more than 1.8× enlargement are refused. |
+| Thumbnails: face frames scored, recomposed, checked on glyph pixels | Candidates from large, sharp, well-exposed faces spread over the video; reframed to put the face on a thirds line opposite the title; contrast measured against the background behind the glyphs (title rendered alone on black as the glyph mask; the first difference-based mask passed invisible text). |
+| `analyze-reference` measures, it does not guess | Pauses kept by the reference's editor and its shot lengths become style parameters, with the measurements in the file header; look, captions, music and colour are left to the agent's eye. |
+
 ## 5. Decisions you made
 
 | Date | Question | Your answer | Consequence |

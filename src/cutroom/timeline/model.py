@@ -206,12 +206,50 @@ class Captions(BaseModel):
     stats: dict = Field(default_factory=dict)
 
 
+class AudioBed(BaseModel):
+    """A music bed or a sound effect placed on the timeline (mixed after the voice chain)."""
+    id: str
+    kind: Literal["music", "sfx"]
+    asset: str = Field(description="Library asset id (assets/library), with its licence.")
+    start: float
+    end: float
+    src_in: float = Field(0.0, description="Offset into the file (s); music loops if shorter than the span.")
+    gain_db: float = Field(0.0, description="Trim relative to the planned level (music under speech, SFX).")
+    fade_in: float = 0.0
+    fade_out: float = 0.0
+    duck: bool = Field(True, description="Music dips under speech.")
+    attach: dict | None = None
+    whole: bool = False
+    license: str = ""
+    credit: str = ""
+    reason: str = ""
+
+
 class AudioSpec(BaseModel):
     target_lufs: float = -14.0
     true_peak_dbtp: float = -1.0
     voice_chain: dict = Field(default_factory=dict)
     ducking: dict = Field(default_factory=dict)
-    music: list[dict] = Field(default_factory=list, description="Each with path, licence, gain, start/end.")
+    music: list[AudioBed] = Field(default_factory=list)
+    sfx: list[AudioBed] = Field(default_factory=list)
+
+
+class BRoll(BaseModel):
+    """A cutaway over the main picture (the main audio continues): a still with slow motion
+    (Ken Burns) or a video clip, from the licence-tracked library."""
+    id: str
+    asset: str
+    kind: Literal["image", "video"]
+    start: float
+    end: float
+    src_in: float = 0.0
+    motion: dict = Field(default_factory=lambda: {"scale0": 1.0, "scale1": 1.08, "x0": 0.5, "y0": 0.5,
+                                                  "x1": 0.5, "y1": 0.5},
+                         description="Ken Burns: zoom from scale0 to scale1, centre (x, y) moving from 0 to 1.")
+    attach: dict | None = None
+    license: str = ""
+    credit: str = ""
+    reason: str = ""
 
 
 class Marker(BaseModel):
@@ -241,6 +279,7 @@ class Timeline(BaseModel):
     clips: list[Clip] = Field(default_factory=list)
     cuts: list[CutDecision] = Field(default_factory=list, description="Every removed source range, with reasons.")
     graphics: list[Graphic] = Field(default_factory=list)
+    broll: list[BRoll] = Field(default_factory=list)
     captions: Captions | None = None
     audio: AudioSpec = Field(default_factory=AudioSpec)
     markers: list[Marker] = Field(default_factory=list)
@@ -315,4 +354,7 @@ def timeline_warnings(tl: Timeline) -> list[str]:
                        f"({g.attach['source']}@{g.attach['t']:.2f}s) is no longer in the edit")
         if g.fact_check.get("unsupported_numbers"):
             out.append(f"graphic {g.id}: numbers without a source: {g.fact_check['unsupported_numbers']}")
+    for b in [*tl.broll, *tl.audio.music, *tl.audio.sfx]:
+        if b.attach and b.attach.get("detached"):
+            out.append(f"{type(b).__name__} {b.id} ({b.asset}): the moment it was attached to is no longer in the edit")
     return out

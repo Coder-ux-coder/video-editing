@@ -67,6 +67,31 @@ def plan_segments(tl: Timeline) -> list[Segment]:
     return segs
 
 
+def render_beds(job: Job, tl: Timeline, rng: tuple[float, float]) -> list[dict]:
+    """Music beds and effects overlapping the rendered range, in render time, with file paths."""
+    from cutroom.assets.library import asset_path, get_asset
+
+    out = []
+    for b in [*tl.audio.music, *tl.audio.sfx]:
+        if b.end <= rng[0] or b.start >= rng[1]:
+            continue
+        out.append({"kind": b.kind, "path": str(asset_path(get_asset(b.asset))), "start": b.start - rng[0],
+                    "end": min(b.end, rng[1]) - rng[0], "src_in": b.src_in + max(0.0, rng[0] - b.start),
+                    "gain_db": b.gain_db, "fade_in": b.fade_in if b.start >= rng[0] else 0.0,
+                    "fade_out": b.fade_out if b.end <= rng[1] else 0.0, "duck": b.duck})
+    return out
+
+
+def speech_spans(job: Job, tl: Timeline, rng: tuple[float, float]) -> list[tuple[float, float]]:
+    """Every kept word in render time (fillers included: they are speech too), for ducking."""
+    from cutroom.captions.plan import timeline_words
+    from cutroom.timeline.ops import words_for
+
+    words = {s.id: words_for(job, s.id) for s in tl.sources}
+    return [(w.start - rng[0], w.end - rng[0]) for w in timeline_words(tl, words, set())
+            if w.end > rng[0] and w.start < rng[1]]
+
+
 def is_vertical(tl: Timeline, source_id: str) -> bool:
     """A portrait output cut from landscape footage (a Short from 16:9 material)."""
     s = tl.source(source_id)
@@ -269,7 +294,7 @@ def output_size(tl: Timeline, mode: Mode, preview_short: int = 540) -> tuple[int
 
 def render_run(job: Job, tl: Timeline, run: list[Segment], out_path: Path, *, mode: Mode, encoder: str,
                timecode: bool, scratch: Path, on_progress: Callable[[float], None] | None = None,
-               overlay: str | None = None) -> None:
+               overlay: str | None = None, broll: list[dict] | None = None) -> None:
     src = job.source(run[0].source)
     fps = tl.meta.fps
     use_proxy = mode == "preview" and src.proxy and job.abspath(src.proxy).is_file()
@@ -301,11 +326,25 @@ def render_run(job: Job, tl: Timeline, run: list[Segment], out_path: Path, *, mo
         graph = "[0:v]" + ",".join(chain)
     chain = []
     extra_inputs: list[str] = []
+    r0 = run[0].out_frame
+    r1 = r0 + sum(s.frames for s in run)
+    k = 1
+    for b in broll or []:
+        # A cutaway pre-rendered to exact frames, placed by timestamp inside this run; it covers
+        # the main picture only (main audio continues) and sits under captions and graphics.
+        a, z = max(b["f0"], r0), min(b["f0"] + b["frames"], r1)
+        if z <= a:
+            continue
+        extra_inputs += ["-i", b["path"]]
+        skip, at = a - b["f0"], a - r0
+        graph += (f"[pre{k}];[{k}:v]trim=start_frame={skip}:end_frame={skip + z - a},setpts=PTS-STARTPTS+{at}/({fps_rational(fps)})/TB,"
+                  f"format=yuv420p,setsar=1[br{k}];[pre{k}][br{k}]overlay=0:0:eof_action=pass")
+        k += 1
     if overlay:
         # Transparent caption/graphics frames numbered in output-timeline frames: this run reads
         # exactly its own frames, starting at its first output frame.
-        extra_inputs = ["-framerate", fps_rational(fps), "-start_number", str(run[0].out_frame), "-i", overlay]
-        graph += "[base];[1:v]format=rgba[ov];[base][ov]overlay=0:0:format=auto:eof_action=pass"
+        extra_inputs += ["-framerate", fps_rational(fps), "-start_number", str(run[0].out_frame), "-i", overlay]
+        graph += f"[base];[{k}:v]format=rgba[ov];[base][ov]overlay=0:0:format=auto:eof_action=pass"
     if mode == "preview" and timecode and drawtext_works():
         start_s = run[0].out_frame / fps
         chain.append("drawtext=text='v%03d %%{pts\\:hms\\:%.3f}':x=10:y=10:fontsize=%d:fontcolor=white:"
@@ -319,6 +358,43 @@ def render_run(job: Job, tl: Timeline, run: list[Segment], out_path: Path, *, mo
             "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", str(out_path)]
     run_ffmpeg(args, desc=f"render video run ({len(run)} clips from {src.id})",
                duration=frames / fps, on_progress=on_progress)
+
+
+def prepare_broll(job: Job, tl: Timeline, rng: tuple[float, float], w: int, h: int, scratch: Path) -> list[dict]:
+    """Pre-render each cutaway in the range to exactly its frames at the output size: a still
+    with a slow Ken Burns move (scaled up first, so the move has no pixel jitter), or a video
+    clip conformed to the output rate, both filling the frame."""
+    from cutroom.assets.library import asset_path, get_asset
+
+    fps = tl.meta.fps
+    out = []
+    for i, b in enumerate(sorted(tl.broll, key=lambda b: b.start)):
+        if b.end <= rng[0] or b.start >= rng[1]:
+            continue
+        f0 = int(round(b.start * fps)) - int(round(rng[0] * fps))
+        frames = int(round(b.end * fps)) - int(round(b.start * fps))
+        src = asset_path(get_asset(b.asset))
+        dst = scratch / f"broll{i:03d}.mkv"
+        if b.kind == "image":
+            m = b.motion
+            n = max(1, frames - 1)
+            z = f"{m['scale0']}+({m['scale1'] - m['scale0']})*on/{n}"
+            cx = f"{m['x0']}+({m['x1'] - m['x0']})*on/{n}"
+            cy = f"{m['y0']}+({m['y1'] - m['y0']})*on/{n}"
+            vf = (f"scale={w * 2}:{h * 2}:force_original_aspect_ratio=increase:flags=lanczos,crop={w * 2}:{h * 2},"
+                  f"zoompan=z='{z}':x='max(0,min(iw-iw/zoom,iw*({cx})-iw/zoom/2))':"
+                  f"y='max(0,min(ih-ih/zoom,ih*({cy})-ih/zoom/2))':d=1:s={w}x{h}:fps={fps_rational(fps)},setsar=1")
+            args = ["-y", "-loop", "1", "-framerate", fps_rational(fps), "-i", str(src), "-vf", vf,
+                    "-frames:v", str(frames)]
+        else:
+            vf = (f"fps={fps_rational(fps)},scale={w}:{h}:force_original_aspect_ratio=increase:flags=lanczos,"
+                  f"crop={w}:{h},setsar=1")
+            args = ["-y", "-ss", f"{b.src_in + max(0.0, rng[0] - b.start):.3f}", "-i", str(src), "-vf", vf, "-an",
+                    "-frames:v", str(frames)]
+        run_ffmpeg([*args, "-c:v", "libx264", "-qp", "0", "-preset", "ultrafast", "-pix_fmt", "yuv420p", str(dst)],
+                   desc=f"b-roll {b.id}")
+        out.append({"id": b.id, "path": str(dst), "f0": f0, "frames": frames})
+    return out
 
 
 def _style_value(tl: Timeline, keys: tuple, default):
@@ -650,11 +726,27 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
         wav = scratch / "audio.wav"
         joins = render_audio(job, tl, segs, wav, join_fade=join_fade)
         mux_wav = wav
+        beds = render_beds(job, tl, rng)
+        mixer = None
+        if beds:
+            from cutroom.audio.mix import mix_beds
+
+            spans = speech_spans(job, tl, rng)
+            mcfg = _style_value(tl, ("audio", "music"), {})
+
+            def mixer(voice: Path, out: Path) -> dict:
+                return mix_beds(voice, out, beds, spans, cfg=mcfg, scratch=scratch)
         if audio_chain and tl.audio.voice_chain:
             from cutroom.audio.chain import apply_chain
 
             mux_wav = scratch / "audio_processed.wav"
-            extra["audio_chain"] = apply_chain(wav, mux_wav, tl.audio.voice_chain, duration=total_frames / fps)
+            extra["audio_chain"] = apply_chain(wav, mux_wav, tl.audio.voice_chain, duration=total_frames / fps,
+                                               mix=mixer)
+            if "mix" in extra["audio_chain"]:
+                extra["mix"] = extra["audio_chain"].pop("mix")
+        elif mixer:
+            mux_wav = scratch / "audio_mixed.wav"
+            extra["mix"] = mixer(wav, mux_wav)
         overlay = None
         if use_caps or use_gfx:
             from cutroom.graphics.overlay import caption_check_props
@@ -674,6 +766,9 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
             if props["graphics"]:
                 extra["graphics"] = {"count": len(props["graphics"]),
                                      "measured": check_graphics(ov_dir, props, faces_at(job, tl, rng[0]))}
+        broll = prepare_broll(job, tl, rng, w, h, scratch) if tl.broll else []
+        if broll:
+            extra["broll"] = [{"id": b["id"], "frames": b["frames"]} for b in broll]
         runs = group_runs(segs)
         parts = []
         done = 0
@@ -686,7 +781,7 @@ def render(job: Job, tl: Timeline, *, mode: Mode = "preview", out_path: Path | N
                     on_progress(min(0.99, cap_share + (1 - cap_share) * (base + f * n) / total_frames))
 
             render_run(job, tl, run, part, mode=mode, encoder=encoder, timecode=timecode, scratch=scratch,
-                       on_progress=prog, overlay=overlay)
+                       on_progress=prog, overlay=overlay, broll=broll)
             parts.append(part)
             done += frames
         concat = scratch / "concat.txt"

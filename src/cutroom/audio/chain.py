@@ -78,7 +78,8 @@ def _limiter(ceiling_db: float) -> str:
             f"level=disabled,aresample=48000")
 
 
-def apply_chain(in_wav: Path, out_wav: Path, chain: dict, *, on_progress=None, duration: float | None = None) -> dict:
+def apply_chain(in_wav: Path, out_wav: Path, chain: dict, *, on_progress=None, duration: float | None = None,
+                mix=None) -> dict:
     """Process ``in_wav`` → ``out_wav`` (48 kHz float WAV) and return measured loudness.
 
     Mastering-style: (1) measure the chain's output, (2) apply the linear gain that reaches the
@@ -97,6 +98,12 @@ def apply_chain(in_wav: Path, out_wav: Path, chain: dict, *, on_progress=None, d
     stage = out_wav.with_name(out_wav.stem + ".pre.wav")
     run_ffmpeg(["-y", "-i", str(in_wav), "-af", ",".join(pre) if pre else "anull", "-c:a", "pcm_f32le", str(stage)],
                desc="voice chain", duration=duration, on_progress=prog(0))
+    mix_stats = None
+    if mix is not None:      # music and effects go under the processed voice, before mastering
+        mixed = out_wav.with_name(out_wav.stem + ".mix.wav")
+        mix_stats = mix(stage, mixed)
+        stage.unlink(missing_ok=True)
+        stage = mixed
     before = measure_loudness(stage)
     if before.integrated_lufs is None:
         raise CutroomError("The edit has no measurable speech loudness.", fix="Check the timeline is not silent.")
@@ -114,4 +121,5 @@ def apply_chain(in_wav: Path, out_wav: Path, chain: dict, *, on_progress=None, d
     return {"filters": pre + [f"volume={gain:.2f}dB", f"oversampled limiter at {ceiling} dBTP"],
             "mode": "linear gain + true-peak limiter", "gain_db": round(gain, 2),
             "before_lufs": before.integrated_lufs, "after_lufs": after.integrated_lufs,
-            "after_true_peak_dbtp": after.true_peak_dbtp, "after_lra": after.lra_lu}
+            "after_true_peak_dbtp": after.true_peak_dbtp, "after_lra": after.lra_lu,
+            **({"mix": mix_stats} if mix_stats else {})}

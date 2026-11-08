@@ -2,6 +2,7 @@ import React from 'react';
 import {Composition} from 'remotion';
 import {Captions} from './components/Captions.jsx';
 import {Overlay} from './components/Overlay.jsx';
+import {Thumbnail} from './components/Thumbnail.jsx';
 import {ensureFonts} from './fonts.js';
 
 ensureFonts();
@@ -36,6 +37,17 @@ export const Root = () => (
 			height={1080}
 			fps={30}
 			durationInFrames={90}
+		/>
+		<Composition
+			id="Thumbnail"
+			component={Thumbnail}
+			defaultProps={{image: null, text: '', emphasis: [], side: 'left', theme: {}}}
+			calculateMetadata={({props}) => ({width: props.width ?? 1280, height: props.height ?? 720, fps: 30,
+				durationInFrames: 1, props: {...props, width: props.width ?? 1280, height: props.height ?? 720}})}
+			width={1280}
+			height={720}
+			fps={30}
+			durationInFrames={1}
 		/>
 	</>
 );

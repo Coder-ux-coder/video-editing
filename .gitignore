@@ -28,3 +28,6 @@ Thumbs.db
 .idea/
 .vscode/
 .bundle-cache/
+
+# Asset library (downloaded/generated per machine; each file has a licence sidecar)
+/assets/library/

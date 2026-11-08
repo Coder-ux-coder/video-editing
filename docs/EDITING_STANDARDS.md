@@ -152,10 +152,13 @@ riding: dynamics stay natural. Every render measures the final file.
 
 | Rule | Default |
 |---|---|
-| B-roll appears within ~1 s of the idea it illustrates and lasts 2–5 s. | [Consensus] |
+| B-roll appears within ~1 s of the idea it illustrates and lasts 2–5 s; cut away after the speaker has been seen for a beat. | [Consensus]; review flags < 1.5 s or > 8 s |
+| Stills move slowly (Ken Burns, ≤ 10 % zoom or a small pan over the cutaway); never enlarge a small picture more than ~1.8×. | [Consensus]; `broll-add` refuses small pictures |
 | B-roll never contradicts what is said; avoid cliché stock (handshakes, pointing at screens) unless ironic. | [Consensus] |
-| Every asset has a recorded free licence (CC0, public domain, OFL, or royalty-free terms that allow client work), else it is generated or skipped. | Brief requirement |
-| Music matches energy, ducks under speech, starts and ends on phrase boundaries or with fades. | [Consensus] |
+| Every asset has a recorded free licence: public domain, CC0 or CC BY (attribution in the description); share-alike, non-commercial and no-derivatives licences are refused for client work; otherwise generate or skip. | Brief requirement; `assets/library` sidecars |
+| Music matches energy, ducks under speech, starts and ends on phrase boundaries or with fades. Cutroom: 12 dB under speech in pauses, a further 8 dB while anyone speaks (look-ahead 150 ms, release 500 ms); the render measures the speech-to-music ratio during speech and the review requires ≥ 15 dB. | [Consensus: commonly −15 to −25 dB under dialogue]; style `audio.music` |
+| Sound effects are rare and motivated (a transition, a list beat); never one on every cut. | [Consensus]; review flags overuse |
+| Thumbnail: 1280×720, under 2 MB, a few words the video delivers, readable at phone size (≥ 3:1 against what is behind the glyphs), never over the face. | YouTube limits (§10); `thumbnails` checks |
 
 ## 10. Platform rules (YouTube only)
 

@@ -253,3 +253,37 @@ def _derived_jobs(job: Job) -> list[Job]:
             if j.manifest.parent == job.id:
                 out_.append(j)
     return out_
+
+
+@tool(ToolManifest("analyze-reference", "Learn pacing from a reference video into styles/<name>.style.yaml.",
+                   "analysis", inputs=["a reference video (references/)"],
+                   outputs=["jobs/ref-<name> (analysis)", "styles/<name>.style.yaml"], tests=["tests/test_media.py"]))
+def analyze_reference(path: Annotated[Path, typer.Argument(help="Reference video (e.g. references/clip.mp4).")],
+                      name: Annotated[str, typer.Option(help="Style name to write.")],
+                      force: Annotated[bool, typer.Option(help="Replace an existing style of that name.")] = False,
+                      as_json: JsonOpt = False) -> None:
+    """Measures the reference (referenced in place, never copied or uploaded): shot lengths and
+    cuts per minute, speech rate, the pauses its editor kept between words and sentences, and
+    loudness; writes a style that inherits the defaults and overrides pauses and pacing, with
+    the measurements in its header. Use it with `cutroom assemble --style <name>`."""
+    from cutroom.cli_common import silenced
+    from cutroom.ingest.ingest import ingest
+    from cutroom.reference import measure, write_style
+
+    if not path.is_file():
+        raise JobError(f"No file {path}.", fix="Put the reference video in references/.")
+    jid = f"ref-{name}"
+    try:
+        job = Job.load(jid)
+    except JobError:
+        job = Job.create(jid, title=f"Reference: {path.name}")
+        ingest(job, [path], copy=False)
+    with silenced():
+        analyze(jid)
+    m = measure(Job.load(jid))
+    p = write_style(name, path.name, m, force=force)
+    emit(as_json, {"style": str(p), "measured": m})
+    if not as_json:
+        out.print(f"{p.name}: {m['cuts_per_minute']} cuts/min, median shot {m['shot_s']['median']} s, "
+                  f"{m['words_per_minute']} words/min, pauses mid {m['pause_mid_s']['median']} s / "
+                  f"sentence {m['pause_sentence_s']['median']} s, {m['loudness_lufs']} LUFS")

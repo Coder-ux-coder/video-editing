@@ -372,3 +372,63 @@ and word corrections.
 - Final 1080x1920 renders spend most time drawing caption frames in Chrome.
 
 **Next: Phase 6** (b-roll, music, SFX, thumbnails).
+
+## Phase 6: B-roll, music, sound effects, thumbnails (2026-11-08)
+
+**Built**
+
+- Licence-tracked asset library (`assets`, `asset-add`, `asset-fetch`): public domain, CC0 and CC BY
+  only (enforced in code), licence read from Wikimedia Commons' own metadata, sidecar per file,
+  de-duplicated by hash; polite fetching (standard thumbnail widths, pacing, `Retry-After`).
+- Generated music beds (calm, documentary, upbeat, warm; seamless loops) and sound effects
+  (whoosh, riser, impact, pop, ding), numpy only.
+- `music` and `sfx`: beds mixed after the voice chain and before mastering, 12 dB under the
+  measured speech and ducked 8 dB more under speech with look-ahead; every render reports the
+  measured speech-to-music ratio.
+- `broll-suggest` and `broll-add`: cutaways (stills with a slow Ken Burns move, or video) attached to
+  their sentence, pre-rendered to exact frames and composited under captions and graphics;
+  pictures that would need > 1.8× enlargement are refused.
+- `thumbnails`: candidates from the best face frames, recomposed with the face on a thirds line
+  opposite the title, drawn by Remotion; checked for 1280x720, < 2 MB, title contrast against
+  what is behind the glyphs, no glyph on the face, sourced numbers; `--pick`.
+- `analyze-reference`: a reference video's kept pauses and shot lengths into a style file.
+- `extend` (lengthen a clip into a removed pause, never over words); review checks for licences,
+  credits, b-roll length, music level, effect overuse. Playbook `07_broll_and_music.md`.
+
+**Bugs found and fixed on the way**
+
+- Generated loops clicked at the loop point (oscillator phases, envelopes and reverb not
+  circular) → phase-locked oscillators, circular envelopes and reverb; seam jump now equal to an
+  ordinary sample step.
+- Wikimedia refused originals and non-standard widths (HTTP 429): standard widths, an original is
+  re-requested at 1280, `Retry-After` honoured. The licence normaliser rejected its own canonical
+  names.
+- Thumbnail checks passed text that would be invisible (difference-based glyph mask) → the title is
+  also rendered alone as the mask. A first thumbnail put the title over the face → recomposition.
+- Review false positive: a zero-length word (recogniser artefact) at the end counted as a clipped word.
+
+**Acceptance run** (the interview, after Phases 3–5; `scripts/acceptance/phase6_media.sh`)
+
+| Step | Result |
+|---|---|
+| Assets | 4 public-domain photos of the White Sands trackways (NPS, USGS) from Commons; a 5th refused by the rate limit, the ground-sloth photo refused by `broll-add` (489 px wide) |
+| B-roll | 3 cutaways (4.0, 4.5, 3.6 s) at the finding, the list of tracks, "the evidence is tracks"; graphics and captions drawn over them |
+| Music | Generated documentary bed under the cold open (0–22 s) and the last 20 s; measured 19.8 dB under speech |
+| Effects | One whoosh on the dip transition |
+| Full preview render (8:43) | All 10 checks pass: frames exact, −14.2 LUFS, −1.5 dBTP, captions in safe zone and in sync, graphics off faces; 6 min 33 s on 4 cores |
+| Review | Ready for the human gate: 0 blocker, 0 major, 0 minor (one flash shot accepted with its reason) |
+| Thumbnail | 3 candidates, all checks pass (contrast 4.5–4.6:1, ~126 KB); candidate 2 picked (eyes open, facing camera) |
+| Reference style | `weekly-address`: 160.7 words/min, pauses kept 0.21 s mid-sentence / 0.77 s between sentences → style with those pauses; one long shot → pacing left at defaults |
+
+**Tested**: 198 automated tests (186 fast + 12 slow, all passing), including a frame-exact b-roll
+render, ducking measured on a synthetic mix, seamless loops, the licence allowlist and the
+thumbnail checks.
+
+**Known limits**
+
+- B-roll suggestions match keywords; whether a picture fits is the agent's judgement (by eye).
+- Generated music is simple; real music needs a file with a licence on record (`asset-add`).
+- Commons rate-limits shared networks; fetching can take minutes.
+- No J/L cuts; no colour matching between b-roll and the interview.
+
+**Next: Phase 7** (orchestrator, revisions, NLE export, delivery).

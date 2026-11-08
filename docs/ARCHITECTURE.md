@@ -253,14 +253,26 @@ into a split/blur/overlay graph; runs break where the layout changes. Moments co
 `shorts/publish.py`. Graphics placement and the review's face checks map face boxes through each
 clip's crop (`output_face_mapper`), and use the Shorts safe area.
 
-### 4.7 Style layer [built; reference analysis P6]
+### 4.6c Media: b-roll, music, effects, thumbnails [built]
+
+`assets/library/<kind>/` holds licence-tracked stock (sidecar per file; allowlist in
+`assets/library.py`; Commons fetcher). `assets/synth.py` generates music beds and effects.
+Timeline: `broll[]` (cutaways with Ken Burns motion, attached to content) and
+`audio.music[]` / `audio.sfx[]` (`AudioBed`). Render: cutaways are pre-rendered to exact frames
+and overlaid in the runs under the overlay; beds are decoded, levelled against the measured
+speech, ducked with a look-ahead envelope built from the word timings, and mixed between the
+voice chain and mastering (`audio/mix.py`); the report carries the measured speech-to-music
+ratio. `thumbnails.py` picks and recomposes face frames and checks the Remotion-drawn result.
+`reference.py` turns a reference video's measurements into a style file.
+
+### 4.7 Style layer [built]
 
 `styles/*.style.yaml` holds editing parameters [built] (pause lengths, pads, filler policy,
 retake thresholds, join fades, pacing and loudness targets), caption styles, and graphics design
 tokens [built] (colours, fonts, weights, sizes, radius, spacing, shadow, motion timing, safe area)
 plus graphics rules (reading time, simultaneity, punch-in scale, backing threshold). Client styles
 deep-merge over the default; `cutroom style --client-style` switches an edit's theme.
-`analyze-reference` turns reference videos into a style profile [P6].
+`analyze-reference` turns a reference video's measured pauses and pacing into a style file [built].
 `docs/EDITING_STANDARDS.md` is the human-readable, cited rationale behind the defaults [built].
 
 ### 4.8 Orchestration layer

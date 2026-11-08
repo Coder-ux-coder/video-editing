@@ -47,6 +47,13 @@ pacing:
 audio:
   target_lufs: -14.0
   true_peak_dbtp: -1.0
+  music:
+    # Levels relative to the measured speech (EDITING_STANDARDS.md §9): music 12 dB under speech
+    # in pauses and a further 8 dB under while anyone speaks; effects 8 dB under speech.
+    music_under_speech_db: 12.0
+    duck_db: 8.0
+    sfx_under_speech_db: 8.0
+    fade_s: 1.5
 
 output:
   long_form:

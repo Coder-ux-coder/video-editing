@@ -1,0 +1,16 @@
+# Style learned from the reference video weekly_address_1080p.mov (cutroom analyze-reference).
+# Measured: {"duration_s": 350.7, "shots": 4, "shot_s": {"median": 104.73, "p25": 70.748, "p75": 121.654, "p90": 123.516}, "cuts_per_minute": 0.68, "words_per_minute": 160.7, "speech_coverage": 0.8, "pause_mid_s": {"median": 0.21, "p90": 0.51}, "pause_sentence_s": {"median": 0.77, "p90": 0.97}, "loudness_lufs": -24.4, "footage_type": "talking_head"}
+# Inherits everything else from default.style.yaml. Pauses are what the reference's
+# editor left between words (median) and before cutting (90th percentile); pacing comes from
+# its shot lengths. Not measurable here (agent to judge from the reference): graphics look,
+# caption style, music, colour.
+name: weekly-address
+editing:
+  keep_pause_mid_sentence: 0.21
+  keep_pause_sentence_end: 0.6
+  max_pause: 0.97
+pacing:
+  visual_change_target_s:
+  - 10.0
+  - 15.0
+  max_static_s: 20.0
