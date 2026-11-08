@@ -129,3 +129,16 @@ def test_word_corrections_keep_timing_and_punctuation():
     assert apply_corrections(wf, [{"find": "white sand", "replace": "White Sands National Park"}]) == 1
     assert wf.words[-1].text == "Park." and wf.words[-1].sentence_end      # punctuation and sentence end kept
     assert [w.i for w in wf.words] == list(range(len(wf.words)))
+
+
+def test_rank_faces_puts_a_confident_face_before_a_larger_doubtful_one():
+    """A hand at the frame edge detected as a bigger, less certain "face" must not become the subject."""
+    from cutroom.perception.visual import rank_faces
+
+    face = {"x": 0.35, "y": 0.21, "w": 0.26, "h": 0.2, "score": 0.91}
+    hand = {"x": 0.76, "y": 0.41, "w": 0.27, "h": 0.21, "score": 0.62}
+    assert rank_faces([hand, face])[0] is face
+    # Two confident faces (an interview two-shot) keep size order.
+    near = {"x": 0.1, "y": 0.2, "w": 0.3, "h": 0.3, "score": 0.88}
+    assert rank_faces([face, near]) == [near, face]
+    assert rank_faces([]) == []

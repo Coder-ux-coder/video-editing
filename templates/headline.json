@@ -2,11 +2,12 @@
  "id": "headline",
  "component": "KineticText",
  "variants": [
+  "stamp",
   "slide",
   "pop"
  ],
  "default_duration_s": 3.0,
- "description": "Short headline at the top of a Short (or over a long-form intro): the hook in a few words, captions stay on.",
+ "description": "Short headline at the top of a Short (or over a long-form intro): the hook in a few words, captions stay on. stamp (default) is fully on screen from the first frame.",
  "zone": "band",
  "anchors": [],
  "size_hint": null,
@@ -15,6 +16,7 @@
  "persistent": false,
  "at_cut": false,
  "backing_variants": [
+  "stamp",
   "slide",
   "pop"
  ],
@@ -30,6 +32,6 @@
   }
  },
  "props": {
-  "size": "heading"
+  "size": "title"
  }
 }

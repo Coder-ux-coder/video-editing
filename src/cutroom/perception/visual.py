@@ -112,7 +112,20 @@ class FaceDetector:
                         "score": round(float(f[-1]), 3),
                         "mouth": [round(float(f[10]) / w, 4), round(float(f[11]) / h, 4),
                                   round(float(f[12]) / w, 4), round(float(f[13]) / h, 4)]})
-        return sorted(out, key=lambda d: -d["w"] * d["h"])
+        return rank_faces(out)
+
+
+# A detection this far below the most confident one (a hand, a poster, a reflection) is listed
+# after every face near the top score, however large its box: callers treat faces[0] as the subject.
+FACE_SCORE_MARGIN = 0.1
+
+
+def rank_faces(faces: list[dict]) -> list[dict]:
+    """Main subject first: the largest of the confident faces, then the doubtful ones by size."""
+    if not faces:
+        return []
+    best = max(f.get("score", 1.0) for f in faces)
+    return sorted(faces, key=lambda d: (d.get("score", 1.0) < best - FACE_SCORE_MARGIN, -d["w"] * d["h"]))
 
 
 def image_quality(img: np.ndarray) -> dict:

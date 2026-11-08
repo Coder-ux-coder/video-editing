@@ -59,13 +59,18 @@ const Word = ({w, frame, style, active, fps, fontSize}) => {
 	}
 	if (w.emph && style.emphasisScale) scale *= style.emphasisScale;
 	const showBox = active && style.activeBox;
+	// A scale does not move the neighbours: an emphasised word would cover the spaces beside it
+	// ("A CLEAN30"). Reserve its overhang on each side (width estimated from its length). Only the
+	// lasting emphasis scale counts: the brief pop would make the line jiggle word by word.
+	const lasting = w.emph && style.emphasisScale > 1 ? style.emphasisScale : 1;
+	const overhang = Math.round((lasting - 1) * text.length * 0.62 * fontSize / 2);
 	const css = {
 		display: 'inline-block',
 		color,
 		transform: `scale(${scale})`,
 		transformOrigin: 'center bottom',
 		padding: showBox ? `0 ${Math.round(fontSize * 0.18)}px` : 0,
-		margin: showBox ? `0 ${-Math.round(fontSize * 0.18)}px` : 0,
+		margin: `0 ${(showBox ? -Math.round(fontSize * 0.18) : 0) + overhang}px`,
 		borderRadius: showBox ? Math.round(fontSize * 0.18) : 0,
 		background: showBox ? style.activeBox : 'transparent',
 		WebkitTextStroke: style.strokeWidth ? `${style.strokeWidth}px ${style.strokeColor}` : undefined,

@@ -17,15 +17,25 @@ export const KineticText = ({params, variant = 'pop', theme, duration, placement
 		<AbsoluteFill style={{opacity: a.exit}}>
 			<div style={{position: 'absolute', top: `${y * 100}%`, transform: placement?.valign === 'top' ? 'none' : 'translateY(-50%)', ...span}}>
 			<div style={{...backingStyle(theme, backing), maxWidth: box ? '100%' : '84%', textAlign: 'center',
+				transform: variant === 'stamp' ? `scale(${interpolate(spring({frame: a.frame, fps: a.fps, durationInFrames: theme.motion.enter,
+					config: {damping: theme.motion.damping, stiffness: theme.motion.stiffness}}), [0, 1], [1.12, 1])})` : undefined,
 				fontFamily: theme.fonts.heading, fontWeight: theme.weights.heading, fontSize: theme.size[params.size ?? 'title'] ?? theme.size.title,
 				lineHeight: 1.1, letterSpacing: '-0.02em'}}>
 				{words.map((w, i) => {
 					const f = a.frame - i * theme.motion.stagger;
 					const p = spring({frame: f, fps: a.fps, durationInFrames: theme.motion.enter,
 						config: {damping: theme.motion.damping, stiffness: theme.motion.stiffness}});
-					const emph = emphasis.includes(i) || emphasis.includes(w.replace(/[^\w]/g, ''));
+					// stamp: a Shorts hook must be readable on the very first frame, so every word is
+					// on screen from frame 0 (one quick punch instead of a word-by-word reveal) and
+					// numbers carry the accent colour.
+					const stamp = variant === 'stamp';
+					const emph = emphasis.includes(i) || emphasis.includes(w.replace(/[^\w]/g, '')) || (stamp && /\d/.test(w));
 					const style = {display: 'inline-block', margin: `0 ${(theme.size[params.size ?? 'title'] ?? theme.size.title) * 0.13}px`, color: emph && variant !== 'marker' ? c.accent : c.text,
-						textShadow: '0 6px 24px rgba(0,0,0,0.55)', opacity: f < 0 ? 0 : Math.min(1, p * 1.4)};
+						textShadow: '0 6px 24px rgba(0,0,0,0.55)', opacity: stamp ? 1 : (f < 0 ? 0 : Math.min(1, p * 1.4))};
+					if (stamp) {
+						style.WebkitTextStroke = `${Math.max(2, Math.round((theme.size[params.size ?? 'title'] ?? theme.size.title) * 0.06))}px rgba(0,0,0,0.85)`;
+						style.paintOrder = 'stroke fill';
+					}
 					if (variant === 'pop') style.transform = `scale(${interpolate(p, [0, 1], [0.4, 1])})`;
 					if (variant === 'slide') style.transform = `translateY(${interpolate(p, [0, 1], [theme.space * 2.5, 0])}px)`;
 					if (variant === 'marker') {
