@@ -28,7 +28,7 @@ import soundfile as sf
 from cutroom.errors import CutroomError, MediaError
 from cutroom.ingest.probe import fps_rational, probe
 from cutroom.job import Job, atomic_write_text
-from cutroom.system.ffmpeg import ffmpeg_info, require_tool, run_ffmpeg
+from cutroom.system.ffmpeg import filter_complex_file_args, ffmpeg_info, require_tool, run_ffmpeg
 from cutroom.timeline.model import Timeline
 
 SR = 48000
@@ -354,7 +354,7 @@ def render_run(job: Job, tl: Timeline, run: list[Segment], out_path: Path, *, mo
     script = scratch / f"{out_path.stem}.filter"
     script.write_text(graph + "," + ",".join(chain) + "[v]", encoding="utf-8")
     frames = sum(s.frames for s in run)
-    args = ["-y", "-i", str(inp), *extra_inputs, "-filter_complex_script", str(script), "-map", "[v]", "-an",
+    args = ["-y", "-i", str(inp), *extra_inputs, *filter_complex_file_args(script), "-map", "[v]", "-an",
             *_encoder_args(mode, encoder), "-r", fps_rational(fps), "-frames:v", str(frames),
             "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", str(out_path)]
     run_ffmpeg(args, desc=f"render video run ({len(run)} clips from {src.id})",

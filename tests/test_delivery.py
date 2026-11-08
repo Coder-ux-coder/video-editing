@@ -3,6 +3,7 @@ gate, and the job-state guide."""
 
 import json
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 import pytest
 
@@ -139,7 +140,8 @@ def test_client_style_scaffold_loads(tmp_path, monkeypatch):
     import cutroom.style as S
 
     monkeypatch.setattr(S, "styles_dir", lambda: tmp_path)
-    (tmp_path / "default.style.yaml").write_text(open(S.__file__.replace("src/cutroom/style.py", "styles/default.style.yaml")).read())
+    default = Path(S.__file__).resolve().parents[2] / "styles" / "default.style.yaml"
+    (tmp_path / "default.style.yaml").write_text(default.read_text(encoding="utf-8"), encoding="utf-8")
     from cutroom.tools.timeline_tools import client_style
 
     client_style("acme")

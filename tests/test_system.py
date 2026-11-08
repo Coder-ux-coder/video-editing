@@ -113,3 +113,26 @@ def test_boundary_errors_assign_words_to_best_sentence():
     words = [NS(start=0.0, end=0.5), NS(start=0.5, end=1.0), NS(start=1.2, end=1.8), NS(start=1.8, end=2.5)]
     # The early-starting third word belongs to sentence 2, not sentence 1.
     assert boundary_errors(NS(words=words), sentences) == [0.0, 0.0, pytest.approx(0.3), 0.0]
+
+
+def test_parse_names_handles_ffmpeg9_two_char_flags():
+    """FFmpeg 9 prints a two-character flags column in ``-filters``; older builds print three."""
+    from cutroom.system.ffmpeg import _parse_names
+
+    ffmpeg9 = (
+        "Filters:\n"
+        "  T.. = Timeline support\n"
+        " .. loudnorm          A->A       EBU R128 loudness normalization\n"
+        " T. cropdetect        V->V       Auto-detect crop size.\n"
+    )
+    ffmpeg7 = " TSC scale             V->V       Scale the input video size.\n"
+    assert _parse_names(ffmpeg9) == {"loudnorm", "cropdetect"}
+    assert _parse_names(ffmpeg7) == {"scale"}
+
+
+def test_filter_complex_file_args_follow_ffmpeg_version():
+    from cutroom.system.ffmpeg import filter_complex_file_args
+
+    assert filter_complex_file_args("g.txt", major=6) == ["-filter_complex_script", "g.txt"]
+    assert filter_complex_file_args("g.txt", major=7) == ["-/filter_complex", "g.txt"]
+    assert filter_complex_file_args("g.txt", major=9) == ["-/filter_complex", "g.txt"]

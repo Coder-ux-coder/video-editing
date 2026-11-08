@@ -164,7 +164,7 @@ def _parse_names(listing: str) -> set[str]:
     """Parse the name column of ``-filters`` / ``-encoders`` / ``-decoders`` output."""
     names = set()
     for line in listing.splitlines():
-        m = re.match(r"^\s*[A-Z.|]{3,6}\s+([A-Za-z0-9_\-]+)\s", line)
+        m = re.match(r"^\s*[A-Z.|]{2,6}\s+([A-Za-z0-9_\-]+)\s", line)
         if m and m.group(1) not in {"=", "Filters", "Encoders", "Decoders"}:
             names.add(m.group(1))
     return names
@@ -190,6 +190,19 @@ def ffmpeg_info() -> FFmpegInfo:
         encoders=_parse_names(_capture([ffmpeg, "-hide_banner", "-encoders"])),
         decoders=_parse_names(_capture([ffmpeg, "-hide_banner", "-decoders"])),
     )
+
+
+def filter_complex_file_args(script: str | os.PathLike, major: int | None = None) -> list[str]:
+    """Arguments that read a ``-filter_complex`` graph from a file.
+
+    FFmpeg 7 added ``-/filter_complex <file>`` and FFmpeg 9 removed ``-filter_complex_script``;
+    FFmpeg 6 only has the old form.
+    """
+    if major is None:
+        major = ffmpeg_info().major
+    if major is not None and major < 7:
+        return ["-filter_complex_script", str(script)]
+    return ["-/filter_complex", str(script)]
 
 
 def test_encoder(name: str, extra: Sequence[str] = ()) -> bool:
